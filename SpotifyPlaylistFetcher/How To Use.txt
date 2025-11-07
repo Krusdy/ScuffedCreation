@@ -1,17 +1,27 @@
-SpotifyPlaylistFetcher is a simple tool to extract Spotify data and save it into a .txt file.
+SpotifyPlaylistFetcher — Usage Guide
 
-Features:
-- Spotify user link:
-  • Extracts all public playlists of the user with playlist name, description, and link.
-- Spotify playlist link:
-  • Extracts the playlist name, description, link, and all songs (song name - artist name).
-- Spotify artist link:
-  • Extracts artist info, genres, followers, and all albums/singles.
+This tool extracts Spotify data and saves it into .txt files.
 
-How to use:
-1. Download and run SpotifyPlaylistFetcher.py.
-2. Paste a Spotify user, playlist, or artist URL — it will open a website.
-3. Copy the website address and paste it once into the CMD window.
-4. A .cache file will be created in the same folder as SpotifyPlaylistFetcher.py.
-5. As long as the .cache file exists, you don’t need to paste the address again.
-6. The extracted data will be saved into a .txt file in the same folder.
+Features
+- User link: exports Overview and Full playlists files
+- Playlist link: exports playlist metadata and all tracks
+- Artist link: exports artist metadata and releases
+
+Setup
+1) Create a folder
+2) Put SpotifyPlaylistFetcher.py inside
+3) Create a folder named "libs" next to it
+4) In VS Code terminal, run:
+   python -m pip install spotipy -t libs
+
+Usage
+1) Run:
+   python SpotifyPlaylistFetcher.py
+2) Paste any Spotify user / playlist / artist link
+3) A browser will open → approve
+4) Copy the final redirected URL and paste it back into terminal
+5) Exported files are stored in "exports" folder
+
+Cache
+.cache is created after first authorization.
+It saves your Spotify token so future runs don’t require browser login, unless token expires.
