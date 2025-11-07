@@ -8,7 +8,7 @@ import os
 from datetime import datetime, timezone
 
 CLIENT_ID = "3f3f1310a4134bdfbd1dc75741deaa34"
-CLIENT_SECRET = "0779aa691cea4f47a2b9c4f893e3400f"
+CLIENT_SECRET = "-"
 REDIRECT_URI = "https://oauth.pstmn.io/v1/callback"
 SCOPE = "playlist-read-private playlist-read-collaborative user-library-read"
 
