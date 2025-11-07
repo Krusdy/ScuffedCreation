@@ -25,3 +25,7 @@ Usage
 Cache
 .cache is created after first authorization.
 It saves your Spotify token so future runs don’t require browser login, unless token expires.
+
+Warning
+This tool can only access PUBLIC playlists.  
+Private or hidden playlists will not be included.
