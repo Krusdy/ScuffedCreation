@@ -1,3 +1,9 @@
+local Config = {
+    TeleportRange = 250,
+    InputCooldown = 0,
+    HeightOffset = 0.1
+}
+
 local uis = game:GetService("UserInputService")
 local sg = game:GetService("StarterGui")
 local players = game:GetService("Players")
@@ -10,10 +16,10 @@ local humanoid = character:WaitForChild("Humanoid")
 
 local enabled = false
 local stopped = false
-local debounce = false
 local savedCFrame = nil
-local teleportRadius = 200
 local deathNotified = false
+local teleportConnection = nil
+local debounce = false
 
 sg:SetCore("SendNotification", {
     Title = "Auto Location",
@@ -21,15 +27,26 @@ sg:SetCore("SendNotification", {
     Duration = 5
 })
 
-local function teleportBack()
-    while enabled and not stopped do
-        if humanoidRootPart and savedCFrame then
-            local distance = (humanoidRootPart.Position - savedCFrame.Position).Magnitude
-            if distance <= teleportRadius then
-                humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, 0.01, 0)
-            end
-        end
-        task.wait(1)
+local function updatePosition()
+    if not enabled or stopped or not humanoidRootPart or not savedCFrame then return end
+
+    local distance = (humanoidRootPart.Position - savedCFrame.Position).Magnitude
+    
+    if distance <= Config.TeleportRange then
+        humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, Config.HeightOffset, 0)
+    end
+end
+
+local function startTeleport()
+    if teleportConnection then teleportConnection:Disconnect() end
+    savedCFrame = humanoidRootPart.CFrame
+    teleportConnection = runService.Heartbeat:Connect(updatePosition)
+end
+
+local function stopTeleport()
+    if teleportConnection then
+        teleportConnection:Disconnect()
+        teleportConnection = nil
     end
 end
 
@@ -42,34 +59,34 @@ uis.InputBegan:Connect(function(input, gameProcessed)
             enabled = not enabled
             
             if enabled then
-                savedCFrame = humanoidRootPart.CFrame
+                startTeleport()
+                sg:SetCore("SendNotification", {
+                    Title = "Script Status",
+                    Text = "Auto Location Enabled!",
+                    Duration = 2
+                })
+            else
+                stopTeleport()
+                sg:SetCore("SendNotification", {
+                    Title = "Script Status",
+                    Text = "Auto Location Disabled!",
+                    Duration = 2
+                })
             end
             
-            sg:SetCore("SendNotification", {
-                Title = "Script Status",
-                Text = "Auto Location " .. (enabled and "Enabled!" or "Disabled!"),
-                Duration = 2
-            })
-            
-            task.wait(0.5)
+            task.wait(Config.InputCooldown)
             debounce = false
             
-            if enabled then
-                teleportBack()
-            end
         elseif uis:IsKeyDown(Enum.KeyCode.LeftAlt) then
-            debounce = true
             stopped = true
             enabled = false
+            stopTeleport()
             
             sg:SetCore("SendNotification", {
                 Title = "Script Stopped",
                 Text = "Auto Location fully closed successfully!",
                 Duration = 2
             })
-            
-            task.wait(0.5)
-            debounce = false
         end
     end
 end)
@@ -78,6 +95,7 @@ humanoid.Died:Connect(function()
     if not deathNotified then
         deathNotified = true
         enabled = false
+        stopTeleport()
         
         sg:SetCore("SendNotification", {
             Title = "Script Status",
@@ -93,5 +111,3 @@ player.CharacterAdded:Connect(function(newCharacter)
     humanoid = character:WaitForChild("Humanoid")
     deathNotified = false
 end)
-
---Auto Location made by Krusdy using ChadSkibidi.
