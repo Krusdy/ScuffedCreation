@@ -29,7 +29,7 @@ local function teleportBack()
                 humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, 0.1, 0)
             end
         end
-        task.wait(0)
+        task.wait(0.01)
     end
 end
 
