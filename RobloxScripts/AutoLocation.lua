@@ -12,7 +12,7 @@ local enabled = false
 local stopped = false
 local debounce = false
 local savedCFrame = nil
-local teleportRadius = 100
+local teleportRadius = 200
 local deathNotified = false
 
 sg:SetCore("SendNotification", {
@@ -29,7 +29,7 @@ local function teleportBack()
                 humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, 0.01, 0)
             end
         end
-        task.wait(0)
+        task.wait(1)
     end
 end
 
