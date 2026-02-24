@@ -26,7 +26,7 @@ local function teleportBack()
         if humanoidRootPart and savedCFrame then
             local distance = (humanoidRootPart.Position - savedCFrame.Position).Magnitude
             if distance <= teleportRadius then
-                humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, 0.1, 0)
+                humanoidRootPart.CFrame = savedCFrame + Vector3.new(0, 0.01, 0)
             end
         end
         task.wait(0)
