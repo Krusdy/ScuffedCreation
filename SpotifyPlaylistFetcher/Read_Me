@@ -1,0 +1,3 @@
+SpotifyPlaylistFetcher.py not working
+SpotifyPlaylistFetcher2.py currently only work for artists' album and required premium user's client id and client secret (after the Developer Access and Platform Security update)
+Read more about Spotify update: https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security
