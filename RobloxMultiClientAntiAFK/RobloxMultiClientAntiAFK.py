@@ -24,6 +24,11 @@ except ImportError:
         "Error", 0)
     sys.exit(1)
 
+def hide_console():
+    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+    if hwnd != 0:
+        ctypes.windll.user32.ShowWindow(hwnd, win32con.SW_HIDE)
+
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.01
 
@@ -53,11 +58,14 @@ class ConfigManager:
                 'hold_key_1': 'o',
                 'hold_duration_1': '1.0',
                 'hold_key_2': 'i',
-                'hold_duration_2': '1.0'
+                'hold_duration_2': '1.0',
+                'stop_hotkey': 'f12'
             }
             self.save()
         else:
             self.config.read(CONFIG_FILE)
+            if not self.config.has_option('Settings', 'stop_hotkey'):
+                self.set('stop_hotkey', 'f12')
 
     def save(self):
         with open(CONFIG_FILE, 'w') as configfile:
@@ -130,7 +138,10 @@ class RobloxSwitcherApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Roblox Auto Key Presser")
-        self.root.geometry("720x800")
+        
+        self.width = 680
+        self.height = 760
+        self.center_window()
         
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
@@ -150,6 +161,14 @@ class RobloxSwitcherApp:
         self.check_admin()
         self.log("Application started.")
 
+    def center_window(self):
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = (screen_width // 2) - (self.width // 2)
+        y = (screen_height // 2) - (self.height // 2)
+        self.root.geometry(f"{self.width}x{self.height}+{x}+{y}")
+        self.root.resizable(False, False)
+
     def check_admin(self):
         is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
         if is_admin:
@@ -158,10 +177,10 @@ class RobloxSwitcherApp:
             self.log("Running as Standard User.")
 
     def setup_ui(self):
-        self.main_container = ctk.CTkScrollableFrame(self.root, fg_color="transparent")
-        self.main_container.pack(fill="both", expand=True, padx=10, pady=10)
+        self.main_container = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True, padx=15, pady=10)
 
-        ctk.CTkLabel(self.main_container, text="Roblox Auto Key Presser", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(5, 15))
+        ctk.CTkLabel(self.main_container, text="Roblox Auto Key Presser", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(5, 10))
 
         control_frame = ctk.CTkFrame(self.main_container)
         control_frame.pack(fill="x", pady=5)
@@ -188,14 +207,14 @@ class RobloxSwitcherApp:
         list_frame.pack(fill="x", pady=5)
         ctk.CTkLabel(list_frame, text="Active Roblox Instances", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
         
-        self.listbox = ctk.CTkTextbox(list_frame, height=100, fg_color="#1E1E1E", text_color="#FFFFFF", font=ctk.CTkFont(family="Consolas", size=11))
+        self.listbox = ctk.CTkTextbox(list_frame, height=90, fg_color="#1E1E1E", text_color="#FFFFFF", font=ctk.CTkFont(family="Consolas", size=11))
         self.listbox.pack(fill="x", padx=10, pady=10)
 
         log_frame = ctk.CTkFrame(self.main_container)
         log_frame.pack(fill="x", pady=5)
         ctk.CTkLabel(log_frame, text="Activity Log", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
 
-        self.log_text = ctk.CTkTextbox(log_frame, height=150, fg_color="#121212", text_color="#00ff00", font=ctk.CTkFont(family="Consolas", size=11), state='disabled')
+        self.log_text = ctk.CTkTextbox(log_frame, height=130, fg_color="#121212", text_color="#00ff00", font=ctk.CTkFont(family="Consolas", size=11), state='disabled')
         self.log_text.pack(fill="x", padx=10, pady=10)
 
         settings_frame = ctk.CTkFrame(self.main_container)
@@ -245,8 +264,13 @@ class RobloxSwitcherApp:
         self.entry_t2.insert(0, self.config_mgr.get('hold_duration_2', '1.0'))
         self.entry_t2.grid(row=3, column=3, padx=10, pady=5)
 
+        ctk.CTkLabel(settings_frame, text="Stop Hotkey:").grid(row=4, column=0, padx=10, pady=5, sticky="w")
+        self.entry_stop_key = ctk.CTkEntry(settings_frame, width=90, height=28)
+        self.entry_stop_key.insert(0, self.config_mgr.get('stop_hotkey', 'f12'))
+        self.entry_stop_key.grid(row=4, column=1, padx=10, pady=5)
+
         self.btn_save = ctk.CTkButton(settings_frame, text="Save & Apply", command=self.save_settings, width=150, height=32)
-        self.btn_save.grid(row=4, column=0, columnspan=4, pady=(15, 15))
+        self.btn_save.grid(row=5, column=0, columnspan=4, pady=(15, 10))
 
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -284,7 +308,9 @@ class RobloxSwitcherApp:
             self.config_mgr.set('hold_duration_1', self.entry_t1.get())
             self.config_mgr.set('hold_key_2', self.entry_k2.get().strip().lower())
             self.config_mgr.set('hold_duration_2', self.entry_t2.get())
+            self.config_mgr.set('stop_hotkey', self.entry_stop_key.get().strip().lower())
             self.log("Settings saved.")
+            self.setup_hotkey()
             messagebox.showinfo("Success", "Settings saved!")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -292,12 +318,22 @@ class RobloxSwitcherApp:
     def setup_hotkey(self):
         if self.hotkey_listener:
             self.hotkey_listener.stop()
+        
+        stop_key_str = self.config_mgr.get('stop_hotkey', 'f12').lower()
+        
         def on_press(key):
             try:
-                if key in (pynput.keyboard.Key.cmd, pynput.keyboard.Key.cmd_l, pynput.keyboard.Key.cmd_r):
+                current_key = ""
+                if hasattr(key, 'name'):
+                    current_key = key.name
+                elif hasattr(key, 'char'):
+                    current_key = key.char
+                
+                if current_key == stop_key_str:
                     if self.is_running:
                         self.root.after(0, self.stop_switcher)
             except: pass
+
         self.hotkey_listener = pynput.keyboard.Listener(on_press=on_press)
         self.hotkey_listener.start()
 
@@ -384,6 +420,7 @@ class RobloxSwitcherApp:
 
 if __name__ == "__main__":
     relaunch_as_admin()
+    hide_console()
     app_root = ctk.CTk()
     app = RobloxSwitcherApp(app_root)
     app_root.protocol("WM_DELETE_WINDOW", app.on_closing)
