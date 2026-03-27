@@ -140,7 +140,7 @@ class RobloxSwitcherApp:
         self.root.title("Roblox Auto Key Presser")
         
         self.width = 680
-        self.height = 760
+        self.height = 880
         self.center_window()
         
         ctk.set_appearance_mode("Dark")
@@ -154,7 +154,9 @@ class RobloxSwitcherApp:
         self.stop_event = threading.Event()
         self.hotkey_listener = None
         self.last_switch_time = time.time()
+        self.instance_vars = {}
 
+        self.setup_overlay()
         self.setup_ui()
         self.refresh_list()
         self.setup_hotkey()
@@ -175,6 +177,31 @@ class RobloxSwitcherApp:
             self.log("Administrator privileges detected.")
         else:
             self.log("Running as Standard User.")
+
+    def setup_overlay(self):
+        self.overlay = tk.Toplevel(self.root)
+        self.overlay.overrideredirect(True)
+        self.overlay.attributes("-topmost", True)
+        self.overlay.attributes("-transparentcolor", "black")
+        self.overlay.config(bg="black")
+        self.overlay_frame = tk.Frame(self.overlay, bg="black", highlightbackground="red", highlightthickness=5)
+        self.overlay_frame.pack(fill="both", expand=True)
+        self.overlay.withdraw()
+
+    def show_overlay(self, hwnd):
+        try:
+            rect = win32gui.GetWindowRect(hwnd)
+            x, y, r, b = rect
+            w = r - x
+            h = b - y
+            if w > 0 and h > 0 and x > -10000:
+                self.overlay.geometry(f"{w}x{h}+{x}+{y}")
+                self.overlay.deiconify()
+        except:
+            pass
+
+    def hide_overlay(self):
+        self.overlay.withdraw()
 
     def setup_ui(self):
         self.main_container = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -207,14 +234,14 @@ class RobloxSwitcherApp:
         list_frame.pack(fill="x", pady=5)
         ctk.CTkLabel(list_frame, text="Active Roblox Instances", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
         
-        self.listbox = ctk.CTkTextbox(list_frame, height=90, fg_color="#1E1E1E", text_color="#FFFFFF", font=ctk.CTkFont(family="Consolas", size=11))
-        self.listbox.pack(fill="x", padx=10, pady=10)
+        self.scroll_list = ctk.CTkScrollableFrame(list_frame, height=120, fg_color="#1E1E1E")
+        self.scroll_list.pack(fill="x", padx=10, pady=10)
 
         log_frame = ctk.CTkFrame(self.main_container)
         log_frame.pack(fill="x", pady=5)
         ctk.CTkLabel(log_frame, text="Activity Log", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
 
-        self.log_text = ctk.CTkTextbox(log_frame, height=130, fg_color="#121212", text_color="#00ff00", font=ctk.CTkFont(family="Consolas", size=11), state='disabled')
+        self.log_text = ctk.CTkTextbox(log_frame, height=100, fg_color="#121212", text_color="#00ff00", font=ctk.CTkFont(family="Consolas", size=11), state='disabled')
         self.log_text.pack(fill="x", padx=10, pady=10)
 
         settings_frame = ctk.CTkFrame(self.main_container)
@@ -285,16 +312,35 @@ class RobloxSwitcherApp:
             self.root.after(0, update_ui)
 
     def refresh_list(self):
+        for widget in self.scroll_list.winfo_children():
+            widget.destroy()
+            
         self.roblox_mgr.refresh_windows()
-        self.listbox.configure(state="normal")
-        self.listbox.delete("1.0", "end")
+        new_vars = {}
+        
         if not self.roblox_mgr.windows:
-            self.listbox.insert("end", "No Roblox instances found.\n")
+            lbl = ctk.CTkLabel(self.scroll_list, text="No Roblox instances found.", text_color="#FFFFFF")
+            lbl.pack(anchor="w", pady=5)
         else:
             for win in self.roblox_mgr.windows:
+                hwnd = win['hwnd']
+                current_state = self.instance_vars.get(hwnd, tk.BooleanVar(value=True))
+                if isinstance(current_state, tk.BooleanVar):
+                    var = tk.BooleanVar(value=current_state.get())
+                else:
+                    var = tk.BooleanVar(value=True)
+                new_vars[hwnd] = var
+                
                 time_str = datetime.fromtimestamp(win['start_time']).strftime("%H:%M:%S")
-                self.listbox.insert("end", f"[{time_str}] PID: {win['pid']} - {win['title'][:30]}\n")
-        self.listbox.configure(state="disabled")
+                cb_text = f"[{time_str}] PID: {win['pid']} - {win['title'][:30]}"
+                
+                cb = ctk.CTkCheckBox(self.scroll_list, text=cb_text, variable=var, font=ctk.CTkFont(family="Consolas", size=11))
+                cb.pack(anchor="w", pady=4, padx=5)
+                
+                cb.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
+                cb.bind("<Leave>", lambda e: self.hide_overlay())
+
+        self.instance_vars = new_vars
 
     def save_settings(self):
         try:
@@ -360,10 +406,15 @@ class RobloxSwitcherApp:
 
             for win in self.roblox_mgr.windows:
                 if self.stop_event.is_set(): break
-                if self.roblox_mgr.force_foreground_window(win['hwnd']):
+                
+                hwnd = win['hwnd']
+                if hwnd in self.instance_vars and not self.instance_vars[hwnd].get():
+                    continue
+
+                if self.roblox_mgr.force_foreground_window(hwnd):
                     time.sleep(0.4)
                     
-                    rect = win32gui.GetWindowRect(win['hwnd'])
+                    rect = win32gui.GetWindowRect(hwnd)
                     center_x = (rect[0] + rect[2]) // 2
                     center_y = (rect[1] + rect[3]) // 2
                     pydirectinput.click(center_x, center_y)
