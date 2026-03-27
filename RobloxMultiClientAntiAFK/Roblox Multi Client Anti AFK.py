@@ -53,12 +53,12 @@ class ConfigManager:
     def load(self):
         if not os.path.exists(CONFIG_FILE):
             self.config['Settings'] = {
-                'interval_seconds': '60',
-                'stay_seconds': '0.5',
+                'interval_seconds': '1080.0',
+                'stay_seconds': '0.1',
                 'hold_key_1': 'o',
-                'hold_duration_1': '1.0',
+                'hold_duration_1': '0',
                 'hold_key_2': 'i',
-                'hold_duration_2': '1.0',
+                'hold_duration_2': '0',
                 'stop_hotkey': 'f12'
             }
             self.save()
@@ -390,6 +390,7 @@ class RobloxSwitcherApp:
     def _switch_logic(self):
         self.is_switching = True
         orig_hwnd = win32gui.GetForegroundWindow()
+        orig_mouse_x, orig_mouse_y = pyautogui.position()
         self.log(f"Processing instances...")
 
         try:
@@ -431,6 +432,7 @@ class RobloxSwitcherApp:
         finally:
             if orig_hwnd and win32gui.IsWindow(orig_hwnd):
                 self.roblox_mgr.force_foreground_window(orig_hwnd)
+            pyautogui.moveTo(orig_mouse_x, orig_mouse_y)
             self.last_switch_time = time.time()
             self.is_switching = False
 
