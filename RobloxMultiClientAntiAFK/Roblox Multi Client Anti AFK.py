@@ -53,8 +53,8 @@ class ConfigManager:
     def load(self):
         if not os.path.exists(CONFIG_FILE):
             self.config['Settings'] = {
-                'interval_seconds': '1080.0',
-                'stay_seconds': '0.1',
+                'interval_seconds': '1080',
+                'stay_seconds': '0',
                 'hold_key_1': 'o',
                 'hold_duration_1': '0',
                 'hold_key_2': 'i',
