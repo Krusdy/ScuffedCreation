@@ -137,7 +137,7 @@ class RobloxManager:
 class RobloxSwitcherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Roblox Auto Key Presser")
+        self.root.title("Roblox Multi Client Anti AFK")
         
         self.width = 680
         self.height = 880
@@ -207,7 +207,7 @@ class RobloxSwitcherApp:
         self.main_container = ctk.CTkFrame(self.root, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True, padx=15, pady=10)
 
-        ctk.CTkLabel(self.main_container, text="Roblox Auto Key Presser", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(5, 10))
+        ctk.CTkLabel(self.main_container, text="Roblox Multi Client Anti AFK", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(5, 10))
 
         control_frame = ctk.CTkFrame(self.main_container)
         control_frame.pack(fill="x", pady=5)
