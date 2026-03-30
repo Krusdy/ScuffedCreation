@@ -391,7 +391,11 @@ class RobloxSwitcherApp:
         self.is_switching = True
         orig_hwnd = win32gui.GetForegroundWindow()
         orig_mouse_x, orig_mouse_y = pyautogui.position()
-        self.log(f"Processing instances...")
+        self.log("Processing instances...")
+
+        if orig_hwnd and win32gui.IsWindow(orig_hwnd):
+            win32gui.ShowWindow(orig_hwnd, win32con.SW_MINIMIZE)
+            time.sleep(0.5)
 
         try:
             self.roblox_mgr.refresh_windows()
@@ -431,6 +435,7 @@ class RobloxSwitcherApp:
 
         finally:
             if orig_hwnd and win32gui.IsWindow(orig_hwnd):
+                win32gui.ShowWindow(orig_hwnd, win32con.SW_RESTORE)
                 self.roblox_mgr.force_foreground_window(orig_hwnd)
             pyautogui.moveTo(orig_mouse_x, orig_mouse_y)
             self.last_switch_time = time.time()
