@@ -1,1 +1,5 @@
-UTC+7 05:45 03/28/2026: Restore mouse position after switch
+Time Zone: UTC+7 
+Fixed:
+
+03/31/2026: Sometimes not working if the program before switch is in fullscreen
+03/28/2026: Restore mouse position after switch
