@@ -6,6 +6,7 @@ import threading
 from datetime import datetime
 import configparser
 import ctypes
+import ctypes.wintypes
 
 try:
     import psutil
@@ -62,7 +63,7 @@ class ConfigManager:
             self.config['Other Settings'] = {
                 'stay_seconds': '0',
                 'process_name': 'RobloxPlayerBeta.exe',
-                'blacklist_minimize': 'RobloxPlayerBeta.exe',
+                'blacklist_minimize': 'RobloxPlayerBeta.exe,Discord.exe',
                 'restore_original_window': 'True',
                 'hold_key_1': 'o',
                 'hold_duration_1': '0',
@@ -70,7 +71,8 @@ class ConfigManager:
                 'hold_duration_2': '0',
                 'click_before_key': 'True',
                 'switch_delay': '0',
-                'post_minimize_delay': '0.5'
+                'post_minimize_delay': '0.5',
+                'block_input': 'True'
             }
             self.save()
         else:
@@ -100,7 +102,8 @@ class ConfigManager:
                 'hold_duration_2': '0',
                 'click_before_key': 'True',
                 'switch_delay': '0',
-                'post_minimize_delay': '0.5'
+                'post_minimize_delay': '0.5',
+                'block_input': 'True'
             }
             for key, val in defaults.items():
                 if self.get(key) is None:
@@ -203,6 +206,7 @@ class RobloxSwitcherApp:
         self.hotkey_listener = None
         self.last_switch_time = time.time()
         self.instance_vars = {}
+        self.alt_pressed = False
 
         self.setup_overlay()
         self.setup_ui()
@@ -225,25 +229,6 @@ class RobloxSwitcherApp:
             self.log("Administrator privileges detected.")
         else:
             self.log("Running as Standard User.")
-
-    def show_toast(self, message):
-        toast = ctk.CTkToplevel(self.root)
-        toast.overrideredirect(True)
-        toast.attributes("-topmost", True)
-        toast.configure(fg_color="transparent")
-        
-        frame = ctk.CTkFrame(toast, fg_color="#2b2b2b", corner_radius=10, border_width=1, border_color="#3a7ebf")
-        frame.pack(padx=10, pady=10, fill="both", expand=True)
-        
-        lbl = ctk.CTkLabel(frame, text=message, text_color="#ffffff", font=ctk.CTkFont(size=13, weight="bold"))
-        lbl.pack(pady=10, padx=20)
-        
-        toast.update_idletasks()
-        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (toast.winfo_width() // 2)
-        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (toast.winfo_height() // 2)
-        toast.geometry(f"+{x}+{y}")
-        
-        toast.after(2000, toast.destroy)
 
     def setup_overlay(self):
         self.overlay = tk.Toplevel(self.root)
@@ -269,6 +254,10 @@ class RobloxSwitcherApp:
 
     def hide_overlay(self):
         self.overlay.withdraw()
+
+    def open_app_folder(self):
+        path = os.path.dirname(os.path.abspath(__file__))
+        os.startfile(path)
 
     def setup_ui(self):
         self.main_container = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -326,11 +315,11 @@ class RobloxSwitcherApp:
         self.entry_interval_sec.pack(side="left")
 
         ctk.CTkLabel(self.settings_frame, text="Post Min. Delay:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        self.entry_post_min_delay = ctk.CTkEntry(self.settings_frame, width=550, height=28)
+        self.entry_post_min_delay = ctk.CTkEntry(self.settings_frame, width=300, height=28)
         self.entry_post_min_delay.grid(row=2, column=1, padx=10, pady=5, sticky="w")
 
         ctk.CTkLabel(self.settings_frame, text="Stop Hotkey:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
-        self.entry_stop_key = ctk.CTkEntry(self.settings_frame, width=550, height=28)
+        self.entry_stop_key = ctk.CTkEntry(self.settings_frame, width=300, height=28)
         self.entry_stop_key.grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
         btn_box = ctk.CTkFrame(self.settings_frame, fg_color="transparent")
@@ -341,6 +330,9 @@ class RobloxSwitcherApp:
 
         self.btn_reload = ctk.CTkButton(btn_box, text="Reload Config", command=self.reload_config, width=140, height=32, fg_color="#E67E22", hover_color="#D35400")
         self.btn_reload.pack(side="left", padx=10)
+
+        self.btn_open_folder = ctk.CTkButton(btn_box, text="Open Folder", command=self.open_app_folder, width=140, height=32, fg_color="#607d8b", hover_color="#455a64")
+        self.btn_open_folder.pack(side="left", padx=10)
 
         self.reload_ui_fields()
 
@@ -365,7 +357,6 @@ class RobloxSwitcherApp:
         self.setup_hotkey()
         self.refresh_list()
         self.log("Configuration reloaded from file.")
-        self.show_toast("Configuration Reloaded Successfully!")
 
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -423,7 +414,6 @@ class RobloxSwitcherApp:
             self.log("Settings saved.")
             self.setup_hotkey()
             self.refresh_list()
-            self.show_toast("Settings Saved Successfully!")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -442,12 +432,28 @@ class RobloxSwitcherApp:
                 elif hasattr(key, 'char'):
                     current_key = key.char
                 
+                if current_key in ['alt_l', 'alt_r']:
+                    self.alt_pressed = True
+                
+                if current_key == 'tab' and self.alt_pressed:
+                    if self.is_switching:
+                        self.stop_event.set()
+                        self.root.after(0, self.stop_switcher)
+                        self.log("Emergency Stop: Alt+Tab detected.")
+                    return
+
                 if current_key in stop_keys:
                     if self.is_running:
                         self.root.after(0, self.stop_switcher)
             except: pass
 
-        self.hotkey_listener = pynput.keyboard.Listener(on_press=on_press)
+        def on_release(key):
+            try:
+                if hasattr(key, 'name') and key.name in ['alt_l', 'alt_r']:
+                    self.alt_pressed = False
+            except: pass
+
+        self.hotkey_listener = pynput.keyboard.Listener(on_press=on_press, on_release=on_release)
         self.hotkey_listener.start()
 
     def perform_switch(self):
@@ -457,30 +463,8 @@ class RobloxSwitcherApp:
     def _switch_logic(self):
         self.is_switching = True
         orig_hwnd = win32gui.GetForegroundWindow()
-        orig_mouse_x, orig_mouse_y = pyautogui.position()
-        should_minimize = True
         
         self.log("Processing instances...")
-
-        if orig_hwnd and win32gui.IsWindow(orig_hwnd):
-            try:
-                _, orig_pid = win32process.GetWindowThreadProcessId(orig_hwnd)
-                orig_process_name = psutil.Process(orig_pid).name()
-                
-                blacklist_str = self.config_mgr.get('blacklist_minimize', '')
-                blacklist = [x.strip().lower() for x in blacklist_str.split(',')]
-                
-                if orig_pid == os.getpid():
-                    should_minimize = False
-                elif orig_process_name.lower() in blacklist:
-                    should_minimize = False
-            except Exception:
-                pass
-
-            if should_minimize:
-                win32gui.ShowWindow(orig_hwnd, win32con.SW_MINIMIZE)
-                post_min_delay = float(self.config_mgr.get('post_minimize_delay', '0.5'))
-                time.sleep(post_min_delay)
 
         try:
             self.roblox_mgr.refresh_windows()
@@ -494,8 +478,7 @@ class RobloxSwitcherApp:
             t2 = float(self.config_mgr.get('hold_duration_2'))
             stay = float(self.config_mgr.get('stay_seconds'))
             switch_delay = float(self.config_mgr.get('switch_delay', '0'))
-            do_click = self.config_mgr.get('click_before_key', 'True').lower() == 'true'
-
+            
             for win in self.roblox_mgr.windows:
                 if self.stop_event.is_set(): break
                 
@@ -506,32 +489,27 @@ class RobloxSwitcherApp:
                 if self.roblox_mgr.force_foreground_window(hwnd):
                     time.sleep(switch_delay)
                     
-                    if do_click:
-                        rect = win32gui.GetWindowRect(hwnd)
-                        center_x = (rect[0] + rect[2]) // 2
-                        center_y = (rect[1] + rect[3]) // 2
-                        pydirectinput.click(center_x, center_y)
-                    
-                    if k1:
-                        pydirectinput.keyDown(k1)
-                        time.sleep(t1)
-                        pydirectinput.keyUp(k1)
-                    
-                    if k2:
-                        pydirectinput.keyDown(k2)
-                        time.sleep(t2)
-                        pydirectinput.keyUp(k2)
-                    
-                    time.sleep(stay)
+                    try:
+                        if k1:
+                            pydirectinput.keyDown(k1)
+                            time.sleep(t1)
+                            pydirectinput.keyUp(k1)
+                        
+                        if k2:
+                            pydirectinput.keyDown(k2)
+                            time.sleep(t2)
+                            pydirectinput.keyUp(k2)
+                        
+                        time.sleep(stay)
+                    except Exception:
+                        pass
 
         finally:
             if orig_hwnd and win32gui.IsWindow(orig_hwnd):
                 restore_config = self.config_mgr.get('restore_original_window', 'True').lower() == 'true'
                 if restore_config:
-                    if should_minimize:
-                        win32gui.ShowWindow(orig_hwnd, win32con.SW_RESTORE)
                     self.roblox_mgr.force_foreground_window(orig_hwnd)
-            pyautogui.moveTo(orig_mouse_x, orig_mouse_y)
+            
             self.last_switch_time = time.time()
             self.is_switching = False
 
