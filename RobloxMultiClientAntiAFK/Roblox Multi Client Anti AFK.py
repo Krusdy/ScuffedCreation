@@ -489,7 +489,18 @@ class RobloxSwitcherApp:
                 if self.roblox_mgr.force_foreground_window(hwnd):
                     time.sleep(switch_delay)
                     
+                    orig_mouse_x, orig_mouse_y = pyautogui.position()
+                    
                     try:
+                        rect = win32gui.GetWindowRect(hwnd)
+                        is_mouse_inside = (rect[0] <= orig_mouse_x <= rect[2]) and (rect[1] <= orig_mouse_y <= rect[3])
+                        
+                        if not is_mouse_inside:
+                            center_x = (rect[0] + rect[2]) // 2
+                            center_y = (rect[1] + rect[3]) // 2
+                            pyautogui.moveTo(center_x, center_y, duration=0.1)
+                            time.sleep(0.1)
+
                         if k1:
                             pydirectinput.keyDown(k1)
                             time.sleep(t1)
@@ -501,6 +512,10 @@ class RobloxSwitcherApp:
                             pydirectinput.keyUp(k2)
                         
                         time.sleep(stay)
+                        
+                        if not is_mouse_inside:
+                            pyautogui.moveTo(orig_mouse_x, orig_mouse_y, duration=0.1)
+                            
                     except Exception:
                         pass
 
