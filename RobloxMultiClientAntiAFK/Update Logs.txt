@@ -1,9 +1,13 @@
 Time Zone: UTC+7 
 Fixed:
-04/11/2026
+20:00 04/11/2026
+  + Fixed not working if mouse at top left (0,0)
+  + Removed Herobrine
+19:09 04/11/2026
   + Remove minimize app before switch
   + Remove useless notification pop up
   + Added Open Folder button
+  + Added Herobrine
 03/31/2026
   + Sometimes not working if the program before switch is in fullscreen
 03/28/2026
