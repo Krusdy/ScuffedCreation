@@ -1,10 +1,10 @@
 Time Zone: UTC+7 
 Fixed:
 04/11/2026
- + Remove minimize app before switch
- + Remove useless notification pop up
- + Add Open Folder button.
+  + Remove minimize app before switch
+  + Remove useless notification pop up
+  + Added Open Folder button
 03/31/2026
- + Sometimes not working if the program before switch is in fullscreen and things
+  + Sometimes not working if the program before switch is in fullscreen
 03/28/2026
- + Restore mouse position after switch
+  + Restore mouse position after switch
