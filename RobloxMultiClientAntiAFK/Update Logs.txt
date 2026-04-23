@@ -1,14 +1,25 @@
 Time Zone: UTC+7 
-Fixed:
+
+04/24/2026
++ Resolved switching failure when mouse is at (0,0) by moving to (1,1) before switching
++ Complete UI overhaul
++ Added configurable key hold durations
++ Relocated Activity Logs to a dedicated View Log button
++ Added note text boxes next to each instance for account names/labels
++ Changed instance timestamps to "Time Started Ago" format (e.g., 2h 15m ago) instead of start time
+
 20:00 04/11/2026
-  + Fixed not working if mouse at top left (0,0)
-  + Removed Herobrine
++ Fixed switching issues when mouse is at the top left (0,0)
++ Removed Herobrine
+
 19:09 04/11/2026
-  + Remove minimize app before switch
-  + Remove useless notification pop up
-  + Added Open Folder button
-  + Added Herobrine
++ Disabled application minimization before switching
++ Removed unnecessary notification pop-ups
++ Added Open Folder button
++ Added Herobrine
+
 03/31/2026
-  + Sometimes not working if the program before switch is in fullscreen
++ Fixed intermittent switching failures when programs are in fullscreen
+
 03/28/2026
-  + Restore mouse position after switch
++ Added mouse position restoration after switching
