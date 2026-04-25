@@ -1,5 +1,10 @@
 Time Zone: UTC+7 
 
+04/25/2026
++ Window border now only appears when hovering over a PID
++ Added smooth fade animations for window border visibility
++ Note text boxes are now saved and persist across sessions
+
 04/24/2026
 + Resolved switching failure when mouse is at (0,0) by moving to (1,1) before switching
 + Complete UI overhaul
