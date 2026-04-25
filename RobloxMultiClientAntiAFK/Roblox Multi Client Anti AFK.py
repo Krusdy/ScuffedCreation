@@ -7,6 +7,7 @@ import configparser
 import ctypes
 import ctypes.wintypes
 import traceback
+import json
 
 try:
     import psutil
@@ -34,6 +35,7 @@ pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.001
 
 CONFIG_FILE = "config.ini"
+NOTES_FILE = "notes_temp.json"
 
 def relaunch_as_admin():
     try:
@@ -66,7 +68,11 @@ DEFAULT_CONFIG = {
         'mouse_movement_duration': '0.0',
         'pre_action_delay': '0.01',
         'block_input': 'True',
-        'note_box_width': '240'
+        'note_box_width': '240',
+        'overlay_color': '#FF0000',
+        'overlay_thickness': '5',
+        'overlay_fade_speed': '2.0',
+        'overlay_opacity': '0.8'
     }
 }
 
@@ -226,6 +232,8 @@ class RobloxSwitcherApp:
         self.root.wm_attributes('-topmost', True)
         
         self.config_mgr = ConfigManager()
+        self.notes_data = {}
+        self.load_notes()
         
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
@@ -238,7 +246,6 @@ class RobloxSwitcherApp:
         self.hotkey_listener = None
         self.last_switch_time = time.time()
         self.instance_vars = {}
-        self.instance_notes = {}
         self.instance_time_vars = {}
         self.instance_pid_vars = {}
         self.window_start_times = {}
@@ -249,6 +256,13 @@ class RobloxSwitcherApp:
 
         self.log_window = None
         self.log_window_text = None
+
+        self.current_overlay_hwnd = None
+        self.active_alpha = 0.0
+        self.target_alpha = 0.0
+        self.ghost_alpha = 0.0
+        self.active_anim_job = None
+        self.ghost_anim_job = None
 
         self.root.bind("<Button-1>", self.on_global_click)
         self.root.bind("<FocusOut>", self.on_focus_out)
@@ -262,15 +276,34 @@ class RobloxSwitcherApp:
         self.center_window()
         self.root.after(1000, lambda: self.root.wm_attributes('-topmost', False))
 
-    def _is_child_of(self, parent, child):
-        if child is None:
-            return False
-        current = child
-        while current:
-            if current == parent:
-                return True
-            current = current.master
-        return False
+    def load_notes(self):
+        try:
+            if os.path.exists(NOTES_FILE):
+                with open(NOTES_FILE, 'r', encoding='utf-8') as f:
+                    self.notes_data = json.load(f)
+            else:
+                self.notes_data = {}
+        except Exception:
+            self.notes_data = {}
+
+    def save_notes(self):
+        try:
+            with open(NOTES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.notes_data, f, indent=2)
+        except Exception:
+            pass
+
+    def update_note(self, pid, text_var):
+        try:
+            text = text_var.get()
+            str_pid = str(pid)
+            if text:
+                self.notes_data[str_pid] = text
+            elif str_pid in self.notes_data:
+                del self.notes_data[str_pid]
+            self.save_notes()
+        except Exception:
+            pass
 
     def on_focus_out(self, event):
         self.hide_overlay()
@@ -306,41 +339,147 @@ class RobloxSwitcherApp:
             self.log("Running as Standard User.")
 
     def setup_overlay(self):
-        self.overlay = tk.Toplevel(self.root)
-        self.overlay.overrideredirect(True)
-        self.overlay.attributes("-topmost", True)
-        self.overlay.attributes("-transparentcolor", "black")
-        self.overlay.config(bg="black")
-        self.overlay_frame = tk.Frame(self.overlay, bg="black", highlightbackground="red", highlightthickness=5)
-        self.overlay_frame.pack(fill="both", expand=True)
-        self.overlay.withdraw()
+        color = self.config_mgr.get('overlay_color', '#FF0000')
+        thickness = int(self.config_mgr.get('overlay_thickness', 5))
+        
+        self.overlay_active = tk.Toplevel(self.root)
+        self.overlay_active.overrideredirect(True)
+        self.overlay_active.attributes("-topmost", True)
+        self.overlay_active.attributes("-transparentcolor", "black")
+        self.overlay_active.config(bg="black")
+        self.overlay_active_frame = tk.Frame(self.overlay_active, bg="black", highlightbackground=color, highlightthickness=thickness)
+        self.overlay_active_frame.pack(fill="both", expand=True)
+        self.overlay_active.withdraw()
 
-    def show_overlay(self, hwnd):
+        self.overlay_ghost = tk.Toplevel(self.root)
+        self.overlay_ghost.overrideredirect(True)
+        self.overlay_ghost.attributes("-topmost", True)
+        self.overlay_ghost.attributes("-transparentcolor", "black")
+        self.overlay_ghost.config(bg="black")
+        self.overlay_ghost_frame = tk.Frame(self.overlay_ghost, bg="black", highlightbackground=color, highlightthickness=thickness)
+        self.overlay_ghost_frame.pack(fill="both", expand=True)
+        self.overlay_ghost.withdraw()
+
+    def _get_geometry(self, hwnd):
         try:
             rect = win32gui.GetWindowRect(hwnd)
             x, y, r, b = rect
             w = r - x
             h = b - y
+            
+            thickness = int(self.config_mgr.get('overlay_thickness', 5))
+            
+            x += thickness
+            y += thickness
+            w -= (thickness * 2)
+            h -= (thickness * 2)
+
             if w > 0 and h > 0 and x > -10000:
-                self.overlay.geometry(f"{w}x{h}+{x}+{y}")
-                self.overlay.deiconify()
+                return f"{w}x{h}+{x}+{y}"
         except:
             pass
+        return None
+
+    def _animate_active_fade(self):
+        try:
+            speed_factor = float(self.config_mgr.get('overlay_fade_speed', 2.0))
+            if speed_factor < 0.1: speed_factor = 0.1
+            
+            delay_ms = max(1, int(20 / speed_factor))
+            step = 0.05
+
+            if abs(self.active_alpha - self.target_alpha) < 0.05:
+                self.active_alpha = self.target_alpha
+                self.overlay_active.attributes("-alpha", self.active_alpha)
+                self.active_anim_job = None
+                return
+
+            if self.active_alpha < self.target_alpha:
+                self.active_alpha += step
+                if self.active_alpha > self.target_alpha: self.active_alpha = self.target_alpha
+            else:
+                self.active_alpha -= step
+                if self.active_alpha < self.target_alpha: self.active_alpha = self.target_alpha
+            
+            self.overlay_active.attributes("-alpha", self.active_alpha)
+            self.active_anim_job = self.root.after(delay_ms, self._animate_active_fade)
+        except Exception:
+            self.active_anim_job = None
+
+    def _animate_ghost_fade(self):
+        try:
+            speed_factor = float(self.config_mgr.get('overlay_fade_speed', 2.0))
+            if speed_factor < 0.1: speed_factor = 0.1
+            
+            delay_ms = max(1, int(20 / speed_factor))
+            step = 0.05
+
+            if self.ghost_alpha < 0.05:
+                self.ghost_alpha = 0.0
+                self.overlay_ghost.attributes("-alpha", 0)
+                self.overlay_ghost.withdraw()
+                self.ghost_anim_job = None
+                return
+
+            self.ghost_alpha -= step
+            if self.ghost_alpha < 0: self.ghost_alpha = 0
+            
+            self.overlay_ghost.attributes("-alpha", self.ghost_alpha)
+            self.ghost_anim_job = self.root.after(delay_ms, self._animate_ghost_fade)
+        except Exception:
+            self.ghost_anim_job = None
+
+    def show_overlay(self, hwnd):
+        if self.current_overlay_hwnd == hwnd:
+            return
+
+        new_geo = self._get_geometry(hwnd)
+        if not new_geo: return
+
+        if self.current_overlay_hwnd is not None:
+            old_geo = self.overlay_active.geometry()
+            current_alpha = self.active_alpha
+            
+            if current_alpha > 0.05:
+                self.overlay_ghost.geometry(old_geo)
+                self.overlay_ghost.attributes("-alpha", current_alpha)
+                self.overlay_ghost.deiconify()
+                self.ghost_alpha = current_alpha
+                if self.ghost_anim_job: self.root.after_cancel(self.ghost_anim_job)
+                self.ghost_anim_job = self.root.after(0, self._animate_ghost_fade)
+
+        self.current_overlay_hwnd = hwnd
+        self.overlay_active.geometry(new_geo)
+        self.overlay_active.deiconify()
+        
+        max_opacity = float(self.config_mgr.get('overlay_opacity', 0.8))
+        self.target_alpha = max_opacity
+        self.active_alpha = 0.0
+        
+        if self.active_anim_job: self.root.after_cancel(self.active_anim_job)
+        self.active_anim_job = self.root.after(0, self._animate_active_fade)
 
     def hide_overlay(self):
-        self.overlay.withdraw()
+        if self.current_overlay_hwnd is None and self.ghost_alpha == 0:
+            return
 
-    def _handle_row_leave(self, event, frame, hwnd):
-        try:
-            x, y = self.root.winfo_pointerxy()
-            target = self.root.winfo_containing(x, y)
-            
-            if self._is_child_of(frame, target):
-                return
-            
-            self.hide_overlay()
-        except Exception:
-            self.hide_overlay()
+        self.current_overlay_hwnd = None
+        self.target_alpha = 0.0
+        
+        if self.active_anim_job: self.root.after_cancel(self.active_anim_job)
+        if self.ghost_anim_job: self.root.after_cancel(self.ghost_anim_job)
+
+        if self.active_alpha > 0.05:
+            self.active_anim_job = self.root.after(0, self._animate_active_fade)
+        else:
+            self.overlay_active.withdraw()
+            self.active_anim_job = None
+
+        if self.ghost_alpha > 0.05:
+            self.ghost_anim_job = self.root.after(0, self._animate_ghost_fade)
+        else:
+            self.overlay_ghost.withdraw()
+            self.ghost_anim_job = None
 
     def toggle_log_window(self):
         if self.log_window is None or not self.log_window.winfo_exists():
@@ -532,16 +671,30 @@ class RobloxSwitcherApp:
         return "break"
 
     def refresh_list(self):
+        self.load_notes()
+        
         for widget in self.scroll_list.winfo_children():
             widget.destroy()
             
         self.roblox_mgr.refresh_windows()
         new_vars = {}
-        new_notes = {}
         self.instance_time_vars = {}
         self.instance_pid_vars = {}
         self.window_start_times = {}
         self.note_widgets_list = []
+        
+        current_pids = set(win['pid'] for win in self.roblox_mgr.windows)
+        
+        to_remove = []
+        for pid_str in self.notes_data:
+            if int(pid_str) not in current_pids:
+                to_remove.append(pid_str)
+        
+        for pid_str in to_remove:
+            del self.notes_data[pid_str]
+        
+        if to_remove:
+            self.save_notes()
         
         try:
             note_box_width = int(self.config_mgr.get('note_box_width', '240'))
@@ -564,13 +717,10 @@ class RobloxSwitcherApp:
 
                 if hwnd in self.instance_vars:
                     var = self.instance_vars[hwnd]
-                    note_var = self.instance_notes.get(hwnd, tk.StringVar(value=""))
                 else:
                     var = tk.BooleanVar(value=default_state)
-                    note_var = tk.StringVar(value="")
                 
                 new_vars[hwnd] = var
-                new_notes[hwnd] = note_var
                 
                 self.window_start_times[hwnd] = win['start_time']
                 
@@ -597,8 +747,11 @@ class RobloxSwitcherApp:
                 pid_entry.pack(side="right", padx=5)
                 pid_entry.bind("<Key>", lambda e: "break")
                 
+                note_var = tk.StringVar(value=self.notes_data.get(str(pid), ""))
                 note_entry = ctk.CTkEntry(row_frame, textvariable=note_var, placeholder_text="Note...", width=note_box_width, height=24)
                 note_entry.pack(side="right", padx=(0, 5))
+                
+                note_var.trace_add("write", lambda *args, p=pid, v=note_var: self.update_note(p, v))
                 
                 self.note_widgets_list.append(note_entry)
                 note_entry.bind("<Tab>", lambda e, w=note_entry: self.nav_note(e, w, 1))
@@ -606,16 +759,10 @@ class RobloxSwitcherApp:
                 note_entry.bind("<Down>", lambda e, w=note_entry: self.nav_note(e, w, 1))
                 note_entry.bind("<Up>", lambda e, w=note_entry: self.nav_note(e, w, -1))
                 
-                row_frame.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
-                cb.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
-                time_entry.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
                 pid_entry.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
-                note_entry.bind("<Enter>", lambda e, h=hwnd: self.show_overlay(h))
-                
-                row_frame.bind("<Leave>", lambda e, f=row_frame, h=hwnd: self._handle_row_leave(e, f, h))
+                pid_entry.bind("<Leave>", lambda e: self.hide_overlay())
 
         self.instance_vars = new_vars
-        self.instance_notes = new_notes
 
     def open_app_folder(self):
         path = os.path.dirname(os.path.abspath(__file__))
@@ -795,6 +942,7 @@ class RobloxSwitcherApp:
         self.root.after(1000, self.update_timer)
 
     def on_closing(self):
+        self.save_notes()
         self.stop_switcher()
         if self.hotkey_listener: self.hotkey_listener.stop()
         if self.log_window:
