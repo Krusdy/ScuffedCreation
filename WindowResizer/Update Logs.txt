@@ -1,0 +1,8 @@
+Time Zone: UTC+7 
+
+05/05/2026
++ Smart Move: Moving a window now keeps its current size instead of forcing a resize.
++ Auto-Resize Link: Moving will only change window size if you pressed Capture Layout first.
++ 9-Point Grid: Added more movement options to cover all corners and sides of the screen.
++ Live Delay Setting: Added a box to change the delay time instantly on the main screen.
++ Better Persistence: Window pin and delay settings now save and load correctly.
