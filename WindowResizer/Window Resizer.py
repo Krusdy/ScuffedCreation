@@ -9,6 +9,7 @@ import win32gui
 import win32console
 import sys
 import ctypes
+from ctypes import wintypes
 import configparser
 import io
 from screeninfo import get_monitors
@@ -243,31 +244,45 @@ class WindowManagerGUI(ctk.CTk):
             self.pending_resize = False
             self.set_status("LAYOUT APPLIED", "#2ECC71")
 
+    def get_window_offsets(self, hwnd):
+        rect = wintypes.RECT()
+        ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(rect), ctypes.sizeof(rect))
+        win_rect = wintypes.RECT()
+        ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+        return rect.left - win_rect.left, rect.top - win_rect.top, win_rect.right - rect.right, win_rect.bottom - rect.bottom
+
     def move_window(self, pos_key):
         active = gw.getActiveWindow()
         if active:
-            monitor = get_monitors()[0]
-            sw, sh = monitor.width, monitor.height
-            
             if self.pending_resize and self.width:
-                w, h = self.width, self.height
                 active.restore()
-                active.resizeTo(w, h)
+                active.resizeTo(self.width, self.height)
                 self.pending_resize = False
                 msg = "RESIZED & MOVED"
             else:
-                w, h = active.width, active.height
                 msg = "POSITION UPDATED"
 
-            cx, cy = (sw - w) // 2, (sh - h) // 2
+            monitor = get_monitors()[0]
+            sw, sh = monitor.width, monitor.height
+            hwnd = active._hWnd
+
+            l_off, t_off, r_off, b_off = self.get_window_offsets(hwnd)
+            
+            real_w = active.width - l_off - r_off
+            real_h = active.height - t_off - b_off
+
+            cx, cy = (sw - real_w) // 2, (sh - real_h) // 2
+            
             coords = {
-                "1": (0, 0), "2": (cx, 0), "3": (sw - w, 0),
-                "4": (0, cy), "5": (cx, cy), "6": (sw - w, cy),
-                "7": (0, sh - h), "8": (cx, sh - h), "9": (sw - w, sh - h)
+                "1": (0, 0), "2": (cx, 0), "3": (sw - real_w, 0),
+                "4": (0, cy), "5": (cx, cy), "6": (sw - real_w, cy),
+                "7": (0, sh - real_h), "8": (cx, sh - real_h), "9": (sw - real_w, sh - real_h)
             }
+            
             nx, ny = coords[pos_key]
+            
             active.restore()
-            active.moveTo(nx, ny)
+            active.moveTo(nx - l_off, ny - t_off)
             self.set_status(msg, "#2ECC71")
 
     def open_folder(self):
