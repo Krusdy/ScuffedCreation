@@ -1,4 +1,6 @@
 Time Zone: UTC+7 
+05/18/2026
++ Fixed position not perfect.
 
 05/05/2026
 + Smart Move: Moving a window now keeps its current size instead of forcing a resize.
