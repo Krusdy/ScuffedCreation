@@ -37,7 +37,7 @@ class WindowManagerGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Window Workspace")
-        self.geometry("360x480")
+        self.geometry("360x540")
         self.resizable(False, False)
         
         self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
@@ -55,16 +55,16 @@ class WindowManagerGUI(ctk.CTk):
     def load_config(self):
         config = configparser.ConfigParser()
         if not os.path.exists(self.file_path):
-            return None, None, False, 3
+            return 1920, 1080, False, 3
         try:
             config.read(self.file_path)
-            w = int(config.get("Settings", "Width"))
-            h = int(config.get("Settings", "Height"))
+            w = int(config.get("Settings", "Width", fallback=1920))
+            h = int(config.get("Settings", "Height", fallback=1080))
             ontop = config.getboolean("Settings", "AlwaysOnTop", fallback=False)
             countdown = int(config.get("Settings", "Countdown", fallback=3))
             return w, h, ontop, countdown
         except:
-            return None, None, False, 3
+            return 1920, 1080, False, 3
 
     def save_config(self, w, h, ontop, countdown):
         config = configparser.ConfigParser()
@@ -113,6 +113,74 @@ class WindowManagerGUI(ctk.CTk):
         except ValueError:
             pass
 
+    # Feature: Aspect ratio string parser supporting multiple delimiters and zero-fallback
+    def parse_ratio(self):
+        ratio_str = self.ratio_combo.get().strip()
+        if ratio_str in ("Free", "0", ""):
+            return None
+        
+        if ":" in ratio_str:
+            parts = ratio_str.split(":")
+        else:
+            parts = ratio_str.split()
+            
+        if len(parts) == 2:
+            try:
+                r_w = float(parts[0])
+                r_h = float(parts[1])
+                if r_w == 0 or r_h == 0:
+                    return None
+                return r_w, r_h
+            except ValueError:
+                return None
+        return None
+
+    # Feature: Interactive window resolution and customizable aspect ratio controller
+    def update_res_from_ui(self, event=None, trigger=None):
+        try:
+            parsed = self.parse_ratio()
+            if trigger == "width":
+                w_val = self.width_entry.get()
+                if not w_val: return
+                w = int(w_val)
+                if parsed:
+                    r_w, r_h = parsed
+                    h = int(w * r_h / r_w)
+                    self.height_entry.delete(0, "end")
+                    self.height_entry.insert(0, str(h))
+                else:
+                    h_val = self.height_entry.get()
+                    h = int(h_val) if h_val else 0
+            elif trigger == "height":
+                h_val = self.height_entry.get()
+                if not h_val: return
+                h = int(h_val)
+                if parsed:
+                    r_w, r_h = parsed
+                    w = int(h * r_w / r_h)
+                    self.width_entry.delete(0, "end")
+                    self.width_entry.insert(0, str(w))
+                else:
+                    w_val = self.width_entry.get()
+                    w = int(w_val) if w_val else 0
+            else:
+                w_val = self.width_entry.get()
+                if not w_val: return
+                w = int(w_val)
+                if parsed:
+                    r_w, r_h = parsed
+                    h = int(w * r_h / r_w)
+                    self.height_entry.delete(0, "end")
+                    self.height_entry.insert(0, str(h))
+                else:
+                    h_val = self.height_entry.get()
+                    h = int(h_val) if h_val else 0
+
+            if w > 0 and h > 0:
+                self.save_config(w, h, self.always_on_top_val, self.countdown_val)
+        except ValueError:
+            pass
+
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -131,12 +199,32 @@ class WindowManagerGUI(ctk.CTk):
         self.config_label.grid(row=0, column=1, sticky="e")
         self.update_config_label()
 
+        res_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        res_frame.grid(row=1, column=0, padx=10, pady=4, sticky="ew")
+        res_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self.width_entry = ctk.CTkEntry(res_frame, placeholder_text="Width", width=100, height=28)
+        self.width_entry.grid(row=0, column=0, padx=2)
+        self.width_entry.insert(0, str(self.width) if self.width else "")
+        self.width_entry.bind("<KeyRelease>", lambda e: self.update_res_from_ui(e, "width"))
+
+        self.height_entry = ctk.CTkEntry(res_frame, placeholder_text="Height", width=100, height=28)
+        self.height_entry.grid(row=0, column=1, padx=2)
+        self.height_entry.insert(0, str(self.height) if self.height else "")
+        self.height_entry.bind("<KeyRelease>", lambda e: self.update_res_from_ui(e, "height"))
+
+        # Feature: ComboBox for flexible built-in and custom aspect ratio selection
+        self.ratio_combo = ctk.CTkComboBox(res_frame, values=["Free", "16:9", "4:3", "21:9"], width=100, height=28, command=lambda v: self.update_res_from_ui(None, "ratio"))
+        self.ratio_combo.grid(row=0, column=2, padx=2)
+        self.ratio_combo.set("Free")
+        self.ratio_combo.bind("<KeyRelease>", lambda e: self.update_res_from_ui(e, "ratio"))
+
         self.focus_box = ctk.CTkTextbox(main_frame, height=35, corner_radius=8, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=12, weight="bold"))
-        self.focus_box.grid(row=1, column=0, padx=10, pady=4, sticky="ew")
+        self.focus_box.grid(row=2, column=0, padx=10, pady=4, sticky="ew")
         self.focus_box.configure(state="disabled")
 
         ctrl_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        ctrl_frame.grid(row=2, column=0, padx=10, pady=4, sticky="ew")
+        ctrl_frame.grid(row=3, column=0, padx=10, pady=4, sticky="ew")
         ctrl_frame.grid_columnconfigure(0, weight=1)
 
         self.topmost_check = ctk.CTkCheckBox(ctrl_frame, text="Pin Window", font=ctk.CTkFont(size=12), command=self.toggle_always_on_top)
@@ -152,7 +240,7 @@ class WindowManagerGUI(ctk.CTk):
         self.cd_entry.bind("<KeyRelease>", self.update_cd_from_entry)
 
         act_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        act_frame.grid(row=3, column=0, padx=10, pady=4)
+        act_frame.grid(row=4, column=0, padx=10, pady=4)
         
         btn_data = [
             ("Capture Layout", self.check_save, "#1F6AA5", True),
@@ -168,7 +256,7 @@ class WindowManagerGUI(ctk.CTk):
             btn.grid(row=r, column=c, padx=4, pady=4)
 
         pos_frame = ctk.CTkFrame(main_frame, corner_radius=8, fg_color="#333333")
-        pos_frame.grid(row=4, column=0, padx=10, pady=8)
+        pos_frame.grid(row=5, column=0, padx=10, pady=8)
         
         symbols = [("↖", "1"), ("↑", "2"), ("↗", "3"), ("←", "4"), ("•", "5"), ("→", "6"), ("↙", "7"), ("↓", "8"), ("↘", "9")]
         for i, (sym, cmd) in enumerate(symbols):
@@ -177,7 +265,7 @@ class WindowManagerGUI(ctk.CTk):
             btn.grid(row=r, column=c, padx=3, pady=3)
 
         self.status_label = ctk.CTkLabel(main_frame, text="READY", font=ctk.CTkFont(size=15, weight="bold"), text_color="gray")
-        self.status_label.grid(row=5, column=0, pady=(2, 10))
+        self.status_label.grid(row=6, column=0, pady=(2, 10))
 
     def update_config_label(self):
         val = f"{self.width}x{self.height}" if self.width else "None"
@@ -221,12 +309,22 @@ class WindowManagerGUI(ctk.CTk):
         if active and active.title != self.title():
             if self.save_config(active.width, active.height, self.always_on_top_val, self.countdown_val):
                 self.pending_resize = True
+                self.width_entry.delete(0, "end")
+                self.width_entry.insert(0, str(active.width))
+                self.height_entry.delete(0, "end")
+                self.height_entry.insert(0, str(active.height))
+                self.ratio_combo.set("Free")
                 self.set_status(f"CAPTURED: {active.width}x{active.height}", "#2ECC71")
         else:
             self.set_status("ERROR: NO TARGET", "#E74C3C")
 
     def reload_ui_config(self):
         self.width, self.height, self.always_on_top_val, self.countdown_val = self.load_config()
+        self.width_entry.delete(0, "end")
+        self.width_entry.insert(0, str(self.width))
+        self.height_entry.delete(0, "end")
+        self.height_entry.insert(0, str(self.height))
+        self.ratio_combo.set("Free")
         self.cd_entry.delete(0, "end")
         self.cd_entry.insert(0, str(self.countdown_val))
         self.attributes("-topmost", self.always_on_top_val)
