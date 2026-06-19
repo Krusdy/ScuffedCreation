@@ -1,4 +1,8 @@
-Time Zone: UTC+7 
+Time Zone: UTC+7
+06/20/2026
++ Added presets (Right-click to rename or delete).
++ Remake UI bigger.
+
 06/06/2026
 + GUI Resolution: Added resolution options to the GUI.
 + Ratio Change: Added ability to change window aspect ratio.
