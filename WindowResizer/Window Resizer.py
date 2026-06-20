@@ -10,6 +10,7 @@ import win32api
 import win32console
 import sys
 import ctypes
+from ctypes import wintypes
 import configparser
 import io
 
@@ -45,12 +46,12 @@ class WindowManagerGUI(ctk.CTk):
         app_width = 380
         app_height = 800
         
-        monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-        work_area = monitor_info['Work']
-        screen_width = work_area[2] - work_area[0]
-        screen_height = work_area[3] - work_area[1]
-        x = work_area[0] + int((screen_width / 2) - (app_width / 2))
-        y = work_area[1] + int((screen_height / 2) - (app_height / 2))
+        self.geometry(f"{app_width}x{app_height}")
+        self.update_idletasks()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = int((screen_width / 2) - (app_width / 2))
+        y = int((screen_height / 2) - (app_height / 2))
         
         self.geometry(f"{app_width}x{app_height}+{x}+{y}")
         self.resizable(False, False)
@@ -226,7 +227,11 @@ class WindowManagerGUI(ctk.CTk):
         if ratio_str in ("Free", "0", ""): return None
         parts = ratio_str.split(":") if ":" in ratio_str else ratio_str.split()
         if len(parts) == 2:
-            try: return float(parts[0]), float(parts[1])
+            try: 
+                r_w, r_h = float(parts[0]), float(parts[1])
+                if r_w == 0 or r_h == 0:
+                    return None
+                return r_w, r_h
             except ValueError: return None
         return None
 
@@ -314,11 +319,18 @@ class WindowManagerGUI(ctk.CTk):
         self.cd_entry = ctk.CTkEntry(ctrl_frame, width=50, height=28); self.cd_entry.insert(0, str(self.countdown_val))
         self.cd_entry.pack(side="left"); self.cd_entry.bind("<KeyRelease>", self.update_cd_from_entry)
 
+        # Updated Action Frame with Reload Config and Open Folder mapped to Row 1
         act_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         act_frame.pack(fill="x", pady=5)
         act_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        # Row 0: Capture & Apply
         ctk.CTkButton(act_frame, text="Capture", height=36, font=ctk.CTkFont(size=14, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.check_save)).grid(row=0, column=0, padx=5, pady=5, sticky="we")
         ctk.CTkButton(act_frame, text="Apply", height=36, font=ctk.CTkFont(size=14, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.resize_only)).grid(row=0, column=1, padx=5, pady=5, sticky="we")
+        
+        # Row 1: Reload Config & Open Folder
+        ctk.CTkButton(act_frame, text="Reload Config", height=32, command=self.reload_ui_config).grid(row=1, column=0, padx=5, pady=5, sticky="we")
+        ctk.CTkButton(act_frame, text="Open Folder", height=32, command=self.open_folder).grid(row=1, column=1, padx=5, pady=5, sticky="we")
 
         self.focus_box = ctk.CTkTextbox(main_frame, height=36, corner_radius=8, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=13, weight="bold"))
         self.focus_box.pack(fill="x", pady=8); self.focus_box.configure(state="disabled")
@@ -392,6 +404,7 @@ class WindowManagerGUI(ctk.CTk):
                 self.pending_resize = True
                 self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(active.width))
                 self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(active.height))
+                self.ratio_combo.set("Free")
                 self.set_status(f"Captured: {active.width}x{active.height}", "#2ECC71")
         else: self.set_status("Error: No Target", "#E74C3C")
 
@@ -399,16 +412,37 @@ class WindowManagerGUI(ctk.CTk):
         self.width, self.height, self.always_on_top_val, self.countdown_val = self.load_config()
         self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(self.width))
         self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(self.height))
+        self.ratio_combo.set("Free")
         self.update_preset_list(); self.update_config_label(); self.set_status("Reloaded")
 
     def resize_only(self):
         active = gw.getActiveWindow()
-        if active: active.restore(); active.resizeTo(self.width, self.height); self.set_status("Applied", "#2ECC71")
+        if active: 
+            active.restore()
+            active.resizeTo(self.width, self.height)
+            self.pending_resize = False
+            self.set_status("Applied", "#2ECC71")
+
+    def get_window_offsets(self, hwnd):
+        rect = wintypes.RECT()
+        ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(rect), ctypes.sizeof(rect))
+        win_rect = wintypes.RECT()
+        ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+        return rect.left - win_rect.left, rect.top - win_rect.top, win_rect.right - rect.right, win_rect.bottom - rect.bottom
 
     def move_window(self, pos_key):
         active = gw.getActiveWindow()
         if active:
             hwnd = active._hWnd
+            
+            if self.pending_resize and self.width and self.height:
+                active.restore()
+                active.resizeTo(self.width, self.height)
+                self.pending_resize = False
+                msg = "Resized & Moved"
+            else:
+                msg = "Moved"
+
             monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromWindow(hwnd))
             work_area = monitor_info['Work']
             
@@ -417,27 +451,30 @@ class WindowManagerGUI(ctk.CTk):
             sw = work_area[2] - work_area[0]
             sh = work_area[3] - work_area[1]
             
-            aw = active.width
-            ah = active.height
+            l_off, t_off, r_off, b_off = self.get_window_offsets(hwnd)
             
-            cx = start_x + (sw - aw) // 2
-            cy = start_y + (sh - ah) // 2
+            real_w = active.width - l_off - r_off
+            real_h = active.height - t_off - b_off
+            
+            cx = start_x + (sw - real_w) // 2
+            cy = start_y + (sh - real_h) // 2
             
             coords = {
                 "1": (start_x, start_y), 
                 "2": (cx, start_y), 
-                "3": (start_x + sw - aw, start_y), 
+                "3": (start_x + sw - real_w, start_y), 
                 "4": (start_x, cy), 
                 "5": (cx, cy), 
-                "6": (start_x + sw - aw, cy), 
-                "7": (start_x, start_y + sh - ah), 
-                "8": (cx, start_y + sh - ah), 
-                "9": (start_x + sw - aw, start_y + sh - ah)
+                "6": (start_x + sw - real_w, cy), 
+                "7": (start_x, start_y + sh - real_h), 
+                "8": (cx, start_y + sh - real_h), 
+                "9": (start_x + sw - real_w, start_y + sh - real_h)
             }
+            
             nx, ny = coords[pos_key]
             active.restore()
-            active.moveTo(nx, ny)
-            self.set_status("Moved", "#2ECC71")
+            active.moveTo(nx - l_off, ny - t_off)
+            self.set_status(msg, "#2ECC71")
 
     def open_folder(self): os.startfile(os.path.dirname(os.path.abspath(__file__)))
 
