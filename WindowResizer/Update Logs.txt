@@ -1,4 +1,9 @@
 Time Zone: UTC+7
+07/09/2026
++ Auto-Set Feature: Added target/rule management, Auto Size/Position toggles, Always/On-Focus modes, and manual coordinate input.
++ Interface Layout: Split into three categories with bottom-right width editing and top-right reset buttons.
++ Preset Management: Added a search bar and separated Name/Size fields.
+
 06/20/2026
 + Added presets (Right-click to rename or delete).
 + Remake UI bigger.
