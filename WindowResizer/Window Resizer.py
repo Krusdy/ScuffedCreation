@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 import os
 import time
 import threading
@@ -13,11 +14,29 @@ import ctypes
 from ctypes import wintypes
 import configparser
 import io
+import json
+import logging
+import traceback
+
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "error.log")
+
+logger = logging.getLogger()
+logger.setLevel(logging.ERROR)
+handler = logging.FileHandler(LOG_FILE, delay=True)
+formatter = logging.Formatter("%(asctime)s - [%(levelname)s] - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+def log_exception(context="General"):
+    logging.error(f"Critical Exception in {context}:\n{traceback.format_exc()}")
 
 try:
-    ctypes.windll.shcore.SetProcessDpiAwareness(2)
-except:
-    pass
+    ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_int(-4))
+except AttributeError:
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except:
+        pass
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -43,51 +62,73 @@ class WindowManagerGUI(ctk.CTk):
         super().__init__()
         self.title("Window Workspace")
         
-        app_width = 380
-        app_height = 800
+        app_width = 1002
+        app_height = 664
         
-        self.geometry(f"{app_width}x{app_height}")
         self.update_idletasks()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        x = int((screen_width / 2) - (app_width / 2))
-        y = int((screen_height / 2) - (app_height / 2))
-        
-        self.geometry(f"{app_width}x{app_height}+{x}+{y}")
-        self.resizable(False, False)
+        x_position = int((screen_width / 2) - (app_width / 2))
+        y_position = int((screen_height / 2) - (app_height / 2))
+        self.geometry(f"{app_width}x{app_height}+{x_position}+{y_position}")
+        self.resizable(True, True)
+        self.minsize(1002, 664)
         
         self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
         self.presets = {}
-        self.width, self.height, self.always_on_top_val, self.countdown_val = self.load_config()
+        self.autosets = []
+        self.is_resizing = False
+        self.resize_timer = None
+        self.width, self.height, self.always_on_top_val, self.countdown_val, self.col1_width, self.col2_width, self.col3_width = self.load_config()
         
         self.pending_resize = False
         self.status_timer = None
-        
         self.preset_undo_stack = []
         self.preset_redo_stack = []
         self.last_preset_text = ""
         self.editing_inline = None
-
+        
+        self.pid_cache = {} 
+        
         if self.always_on_top_val:
             self.attributes("-topmost", True)
             
-        self.bind_class("Entry", "<Control-BackSpace>", self._ctrl_bs)
+        self.bind_class("Entry", "<Control-BackSpace>", self._ctrl_backspace)
         self.bind("<Control-s>", self._save_preset_event)
-        self.bind("<Control-S>", self._save_preset_event)
+        self.bind("<Configure>", self._on_window_configure)
         
         self.setup_ui()
         self.start_focus_tracker()
+        self.start_auto_enforcer()
 
-    def _ctrl_bs(self, event):
-        w = event.widget
+    def _on_window_configure(self, event):
+        if event.widget == self:
+            self.is_resizing = True
+            if self.resize_timer:
+                self.after_cancel(self.resize_timer)
+            self.resize_timer = self.after(300, self.stop_window_resize)
+
+    def stop_window_resize(self):
+        self.is_resizing = False
+
+    def start_paned_resize(self, event):
+        if self.paned_window.identify(event.x, event.y):
+            self.is_resizing = True
+
+    def stop_paned_resize(self, event):
+        self.is_resizing = False
+        self.save_config()
+
+    def _ctrl_backspace(self, event):
+        widget = event.widget
         try:
-            if w.select_present():
-                w.delete("sel.first", "sel.last")
+            if widget.select_present():
+                widget.delete("sel.first", "sel.last")
             else:
-                idx = w.index("insert")
-                text = w.get()[:idx].rstrip()
+                idx = widget.index("insert")
+                text = widget.get()[:idx].rstrip()
                 del_idx = text.rfind(" ") + 1 if " " in text else 0
-                w.delete(del_idx, idx)
+                widget.delete(del_idx, idx)
             return "break"
         except: pass
 
@@ -95,44 +136,77 @@ class WindowManagerGUI(ctk.CTk):
         config = configparser.ConfigParser()
         config.optionxform = str
         if not os.path.exists(self.file_path):
-            return 1920, 1080, False, 3
+            return 1920, 1080, False, 3, 280, 280, 418
         try:
             config.read(self.file_path)
-            w = int(config.get("Settings", "Width", fallback=1920))
-            h = int(config.get("Settings", "Height", fallback=1080))
-            ontop = config.getboolean("Settings", "AlwaysOnTop", fallback=False)
+            width = int(config.get("Settings", "Width", fallback=1920))
+            height = int(config.get("Settings", "Height", fallback=1080))
+            always_on_top = config.getboolean("Settings", "AlwaysOnTop", fallback=False)
             countdown = int(config.get("Settings", "Countdown", fallback=3))
+            c1 = int(config.get("Settings", "Col1Width", fallback=280))
+            c2 = int(config.get("Settings", "Col2Width", fallback=280))
+            c3 = int(config.get("Settings", "Col3Width", fallback=418))
+            
+            autosets_string = config.get("Settings", "AutoSets", fallback="[]")
+            try:
+                raw_autosets = json.loads(autosets_string)
+                self.autosets = []
+                for rule in raw_autosets:
+                    self.autosets.append({
+                        "executable": rule.get("executable", rule.get("exe", "")),
+                        "width": rule.get("width", rule.get("w", 0)),
+                        "height": rule.get("height", rule.get("h", 0)),
+                        "x_position": rule.get("x_position", rule.get("x", 0)),
+                        "y_position": rule.get("y_position", rule.get("y", 0)),
+                        "automatic_position": rule.get("automatic_position", rule.get("pos", False)),
+                        "automatic_size": rule.get("automatic_size", rule.get("size", False)),
+                        "trigger": rule.get("trigger", "On Focus")
+                    })
+            except:
+                self.autosets = []
+                
             if config.has_section("Presets"):
                 self.presets = dict(config.items("Presets"))
-            return w, h, ontop, countdown
+            return width, height, always_on_top, countdown, c1, c2, c3
         except:
-            return 1920, 1080, False, 3
+            return 1920, 1080, False, 3, 280, 280, 418
 
-    def save_config(self, w, h, ontop, countdown):
+    def save_config(self):
         config = configparser.ConfigParser()
         config.optionxform = str
-        config["Settings"] = {"Width": str(w), "Height": str(h), "AlwaysOnTop": str(ontop), "Countdown": str(countdown)}
+        config["Settings"] = {
+            "Width": str(self.width),
+            "Height": str(self.height),
+            "AlwaysOnTop": str(self.always_on_top_val),
+            "Countdown": str(self.countdown_val),
+            "Col1Width": str(self.col1_width),
+            "Col2Width": str(self.col2_width),
+            "Col3Width": str(self.col3_width),
+            "AutoSets": json.dumps(self.autosets)
+        }
         config["Presets"] = self.presets
         try:
-            with io.StringIO() as ss:
-                config.write(ss)
-                content = ss.getvalue().strip()
-            with open(self.file_path, "w") as f: f.write(content)
-            self.width, self.height, self.always_on_top_val, self.countdown_val = w, h, ontop, countdown
+            with io.StringIO() as string_stream:
+                config.write(string_stream)
+                content = string_stream.getvalue().strip()
+            with open(self.file_path, "w") as file_handle: 
+                file_handle.write(content)
             self.update_config_label()
             return True
-        except: return False
+        except Exception: 
+            log_exception("save_config")
+            return False
 
     def _save_preset_event(self, event=None):
         self.save_preset()
 
     def save_preset(self):
         name = self.preset_name_entry.get().strip()
-        w = self.width_entry.get()
-        h = self.height_entry.get()
-        if name and w and h:
-            self.presets[name] = f"{w},{h}"
-            self.save_config(self.width, self.height, self.always_on_top_val, self.countdown_val)
+        width = self.width_entry.get()
+        height = self.height_entry.get()
+        if name and width and height:
+            self.presets[name] = f"{width},{height}"
+            self.save_config()
             self.update_preset_list()
             self.preset_name_entry.delete(0, "end")
             self.preset_undo_stack.clear()
@@ -142,16 +216,16 @@ class WindowManagerGUI(ctk.CTk):
 
     def load_preset_to_ui(self, name):
         if name in self.presets:
-            w, h = self.presets[name].split(",")
-            self.width_entry.delete(0, "end"); self.width_entry.insert(0, w)
-            self.height_entry.delete(0, "end"); self.height_entry.insert(0, h)
-            self.update_res_from_ui()
+            width, height = self.presets[name].split(",")
+            self.width_entry.delete(0, "end"); self.width_entry.insert(0, width)
+            self.height_entry.delete(0, "end"); self.height_entry.insert(0, height)
+            self.update_resolution_from_ui()
             self.set_status(f"Loaded '{name}'")
 
     def delete_preset(self, name):
         if name in self.presets:
             del self.presets[name]
-            self.save_config(self.width, self.height, self.always_on_top_val, self.countdown_val)
+            self.save_config()
             self.update_preset_list()
             self.set_status(f"Deleted '{name}'", "#E74C3C")
 
@@ -159,45 +233,52 @@ class WindowManagerGUI(ctk.CTk):
         self.editing_inline = old_name
         self.update_preset_list()
 
-    def update_preset_list(self):
+    def update_preset_list(self, search_query=""):
         for widget in self.presets_frame.winfo_children(): 
             widget.destroy()
             
-        for name, res in self.presets.items():
+        for name, resolution in self.presets.items():
+            if search_query and search_query.lower() not in name.lower():
+                continue
+                
             row_frame = ctk.CTkFrame(self.presets_frame, fg_color="transparent")
             row_frame.pack(fill="x", pady=2)
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(1, weight=0)
             
             if getattr(self, "editing_inline", None) == name:
-                entry = ctk.CTkEntry(row_frame, height=32)
+                entry = ctk.CTkEntry(row_frame, height=28)
                 entry.insert(0, name)
-                entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+                entry.grid(row=0, column=0, sticky="we", padx=(0, 5))
                 
-                def save_inline(old=name, e=entry):
-                    new_name = e.get().strip()
+                def save_inline(old=name, entry_widget=entry):
+                    new_name = entry_widget.get().strip()
                     if new_name and new_name != old:
                         new_presets = {}
-                        for k, v in self.presets.items():
-                            if k == old: new_presets[new_name] = v
-                            else: new_presets[k] = v
+                        for key, value in self.presets.items():
+                            if key == old: new_presets[new_name] = value
+                            else: new_presets[key] = value
                         self.presets = new_presets
-                        self.save_config(self.width, self.height, self.always_on_top_val, self.countdown_val)
+                        self.save_config()
                     self.editing_inline = None
-                    self.update_preset_list()
+                    self.update_preset_list(self.search_entry.get())
                     if new_name: self.set_status(f"Renamed to '{new_name}'", "#2ECC71")
                 
-                entry.bind("<Return>", lambda e, old=name, ent=entry: save_inline(old, ent))
-                entry.bind("<Escape>", lambda e: [setattr(self, 'editing_inline', None), self.update_preset_list()])
-                ctk.CTkButton(row_frame, text="✓", width=32, height=32, fg_color="#2ECC71", hover_color="#27AE60", command=save_inline).pack(side="right")
-                
+                entry.bind("<Return>", lambda event, old=name, ent=entry: save_inline(old, ent))
+                entry.bind("<Escape>", lambda event: [setattr(self, 'editing_inline', None), self.update_preset_list(self.search_entry.get())])
+                ctk.CTkButton(row_frame, text="✓", width=28, height=28, fg_color="#2ECC71", hover_color="#27AE60", command=save_inline).grid(row=0, column=1)
                 entry.focus_set()
                 entry.select_range(0, 'end')
-                
             else:
-                btn = ctk.CTkButton(row_frame, text=f"{name} ({res})", height=32, anchor="w", fg_color="#2C3E50", hover_color="#34495E", command=lambda n=name: self.load_preset_to_ui(n))
-                btn.pack(fill="x", expand=True)
+                name_button = ctk.CTkButton(row_frame, text=name, height=28, anchor="w", fg_color="#2C3E50", hover_color="#34495E", command=lambda n=name: self.load_preset_to_ui(n))
+                name_button.grid(row=0, column=0, sticky="we", padx=(0, 5))
                 
-                menu = ctk.CTkOptionMenu(self, values=["Rename", "Delete"], command=lambda v, n=name: self._menu_handler(v, n))
-                btn.bind("<Button-3>", lambda e, m=menu: m._dropdown_menu.tk_popup(e.x_root, e.y_root))
+                resolution_button = ctk.CTkButton(row_frame, text=resolution, width=80, height=28, fg_color="#1F6AA5", hover_color="#144870", command=lambda n=name: self.load_preset_to_ui(n))
+                resolution_button.grid(row=0, column=1, sticky="e")
+                
+                menu = ctk.CTkOptionMenu(self, values=["Rename", "Delete"], command=lambda value, n=name: self._menu_handler(value, n))
+                name_button.bind("<Button-3>", lambda event, m=menu: m._dropdown_menu.tk_popup(event.x_root, event.y_root))
+                resolution_button.bind("<Button-3>", lambda event, m=menu: m._dropdown_menu.tk_popup(event.x_root, event.y_root))
 
     def _menu_handler(self, value, name):
         if value == "Rename": self.rename_preset(name)
@@ -209,48 +290,49 @@ class WindowManagerGUI(ctk.CTk):
         if auto_reset: self.status_timer = self.after(5000, lambda: self.status_label.configure(text="Ready", text_color="gray"))
 
     def toggle_always_on_top(self):
-        is_on = self.topmost_check.get()
+        is_on = self.topmost_checkbox.get()
         self.attributes("-topmost", is_on)
         self.always_on_top_val = is_on
-        if self.width and self.height: self.save_config(self.width, self.height, is_on, self.countdown_val)
+        if self.width and self.height: self.save_config()
 
-    def update_cd_from_entry(self, *args):
+    def update_countdown_from_entry(self, *args):
         try:
-            val = self.cd_entry.get()
-            if val == "": return
-            self.countdown_val = int(val)
-            if self.width and self.height: self.save_config(self.width, self.height, self.always_on_top_val, self.countdown_val)
+            value = self.countdown_entry.get()
+            if value == "": return
+            self.countdown_val = int(value)
+            if self.width and self.height: self.save_config()
         except ValueError: pass
 
     def parse_ratio(self):
-        ratio_str = self.ratio_combo.get().strip()
-        if ratio_str in ("Free", "0", ""): return None
-        parts = ratio_str.split(":") if ":" in ratio_str else ratio_str.split()
+        ratio_string = self.ratio_combobox.get().strip()
+        if ratio_string in ("Free", "0", ""): return None
+        parts = ratio_string.split(":") if ":" in ratio_string else ratio_string.split()
         if len(parts) == 2:
             try: 
-                r_w, r_h = float(parts[0]), float(parts[1])
-                if r_w == 0 or r_h == 0:
-                    return None
-                return r_w, r_h
+                ratio_width, ratio_height = float(parts[0]), float(parts[1])
+                if ratio_width == 0 or ratio_height == 0: return None
+                return ratio_width, ratio_height
             except ValueError: return None
         return None
 
-    def update_res_from_ui(self, event=None, trigger=None):
+    def update_resolution_from_ui(self, event=None, trigger=None):
         try:
             parsed = self.parse_ratio()
-            w, h = 0, 0
+            width, height = 0, 0
             if trigger == "width":
-                w = int(self.width_entry.get() or 0)
-                if parsed: h = int(w * parsed[1] / parsed[0]); self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(h))
-                else: h = int(self.height_entry.get() or 0)
+                width = int(self.width_entry.get() or 0)
+                if parsed: height = int(width * parsed[1] / parsed[0]); self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(height))
+                else: height = int(self.height_entry.get() or 0)
             elif trigger == "height":
-                h = int(self.height_entry.get() or 0)
-                if parsed: w = int(h * parsed[0] / parsed[1]); self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(w))
-                else: w = int(self.width_entry.get() or 0)
+                height = int(self.height_entry.get() or 0)
+                if parsed: width = int(height * parsed[0] / parsed[1]); self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(width))
+                else: width = int(self.width_entry.get() or 0)
             else:
-                w = int(self.width_entry.get() or 0)
-                h = int(self.height_entry.get() or 0)
-            if w > 0 and h > 0: self.save_config(w, h, self.always_on_top_val, self.countdown_val)
+                width = int(self.width_entry.get() or 0)
+                height = int(self.height_entry.get() or 0)
+            if width > 0 and height > 0:
+                self.width, self.height = width, height
+                self.save_config()
         except ValueError: pass
 
     def _track_preset_text(self, event):
@@ -265,218 +347,598 @@ class WindowManagerGUI(ctk.CTk):
     def _undo_preset_text(self, event):
         if self.preset_undo_stack:
             self.preset_redo_stack.append(self.last_preset_text)
-            prev = self.preset_undo_stack.pop()
+            previous = self.preset_undo_stack.pop()
             self.preset_name_entry.delete(0, "end")
-            self.preset_name_entry.insert(0, prev)
-            self.last_preset_text = prev
+            self.preset_name_entry.insert(0, previous)
+            self.last_preset_text = previous
         return "break"
 
     def _redo_preset_text(self, event):
         if self.preset_redo_stack:
             self.preset_undo_stack.append(self.last_preset_text)
-            nxt = self.preset_redo_stack.pop()
+            next_text = self.preset_redo_stack.pop()
             self.preset_name_entry.delete(0, "end")
-            self.preset_name_entry.insert(0, nxt)
-            self.last_preset_text = nxt
+            self.preset_name_entry.insert(0, next_text)
+            self.last_preset_text = next_text
         return "break"
 
     def setup_ui(self):
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=5, pady=5)
         
+        self.paned_window = tk.PanedWindow(main_container, orient="horizontal", bd=0, sashwidth=6, bg="#242424", sashcursor="sb_h_double_arrow", opaqueresize=True)
+        self.paned_window.pack(fill="both", expand=True)
+        
+        self.paned_window.bind("<ButtonPress-1>", self.start_paned_resize)
+        self.paned_window.bind("<ButtonRelease-1>", self.stop_paned_resize)
+        
+        self.col1 = ctk.CTkFrame(self.paned_window, width=self.col1_width)
+        self.col2 = ctk.CTkFrame(self.paned_window, width=self.col2_width)
+        self.col3 = ctk.CTkFrame(self.paned_window, width=self.col3_width)
+        
+        self.paned_window.add(self.col1, minsize=280)
+        self.paned_window.paneconfig(self.col1, width=self.col1_width)
+        
+        self.paned_window.add(self.col2, minsize=280)
+        self.paned_window.paneconfig(self.col2, width=self.col2_width)
+        
+        self.paned_window.add(self.col3, minsize=380)
+        self.paned_window.paneconfig(self.col3, width=self.col3_width)
+        
+        self.col1.bind("<Configure>", lambda e: self.update_pane_labels())
+        self.col2.bind("<Configure>", lambda e: self.update_pane_labels())
+        self.col3.bind("<Configure>", lambda e: self.update_pane_labels())
+        
+        self.setup_col1()
+        self.setup_col2()
+        self.setup_col3()
+
+    def update_pane_labels(self):
+        if not hasattr(self, 'col1_width_lbl'): return
+        
+        c1 = self.col1.winfo_width()
+        c2 = self.col2.winfo_width()
+        c3 = self.col3.winfo_width()
+        
+        active_widget = self.focus_get()
+        
+        if c1 > 50 and c1 != self.col1_width:
+            self.col1_width = c1
+            if active_widget != self.col1_width_lbl:
+                self.col1_width_lbl.delete(0, "end")
+                self.col1_width_lbl.insert(0, f"{c1}px")
+                
+        if c2 > 50 and c2 != self.col2_width:
+            self.col2_width = c2
+            if active_widget != self.col2_width_lbl:
+                self.col2_width_lbl.delete(0, "end")
+                self.col2_width_lbl.insert(0, f"{c2}px")
+                
+        if c3 > 50 and c3 != self.col3_width:
+            self.col3_width = c3
+            if active_widget != self.col3_width_lbl:
+                self.col3_width_lbl.delete(0, "end")
+                self.col3_width_lbl.insert(0, f"{c3}px")
+
+    def apply_manual_pane_size(self, col_num):
+        try:
+            if col_num == 1:
+                val_str = self.col1_width_lbl.get().lower().replace("px", "").strip()
+                val = int(val_str)
+                self.paned_window.paneconfig(self.col1, width=val)
+                self.col1_width = val
+                self.focus_set()
+            elif col_num == 2:
+                val_str = self.col2_width_lbl.get().lower().replace("px", "").strip()
+                val = int(val_str)
+                self.paned_window.paneconfig(self.col2, width=val)
+                self.col2_width = val
+                self.focus_set()
+            elif col_num == 3:
+                val_str = self.col3_width_lbl.get().lower().replace("px", "").strip()
+                val = int(val_str)
+                self.paned_window.paneconfig(self.col3, width=val)
+                self.col3_width = val
+                self.focus_set()
+            
+            self.save_config()
+            self.update_pane_labels()
+        except ValueError:
+            self.update_pane_labels()
+
+    def reset_pane_size(self, col_num):
+        if col_num == 1:
+            self.paned_window.paneconfig(self.col1, width=280)
+        elif col_num == 2:
+            self.paned_window.paneconfig(self.col2, width=280)
+        elif col_num == 3:
+            self.paned_window.paneconfig(self.col3, width=418)
+        self.update_pane_labels()
+        self.save_config()
+
+    def setup_col1(self):
         monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
         work_area = monitor_info['Work']
-        mw = work_area[2] - work_area[0]
-        mh = work_area[3] - work_area[1]
+        monitor_width, monitor_height = work_area[2] - work_area[0], work_area[3] - work_area[1]
         
-        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        header_frame.pack(fill="x", pady=(0, 10))
-        ctk.CTkLabel(header_frame, text=f"Display: {mw}x{mh}", font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
-        self.config_label = ctk.CTkLabel(header_frame, text="", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1F6AA5")
+        header_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        header_frame.pack(fill="x", padx=5, pady=5)
+        
+        left_header = ctk.CTkFrame(header_frame, fg_color="transparent")
+        left_header.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(left_header, text="Current Display", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(left_header, text=f"{monitor_width}x{monitor_height}", font=ctk.CTkFont(size=13)).pack(anchor="w")
+        
+        right_header = ctk.CTkFrame(header_frame, fg_color="transparent")
+        right_header.pack(side="right")
+        
+        ctk.CTkButton(right_header, text="↺", width=28, height=28, fg_color="#34495E", hover_color="#2C3E50", command=lambda: self.reset_pane_size(1)).pack(side="right", padx=(5, 0))
+        
+        self.config_label = ctk.CTkLabel(right_header, text="", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1F6AA5")
         self.config_label.pack(side="right")
         self.update_config_label()
         
-        card_res = ctk.CTkFrame(main_frame, corner_radius=10)
-        card_res.pack(fill="x", pady=5)
-        res_inner = ctk.CTkFrame(card_res, fg_color="transparent")
-        res_inner.pack(padx=10, pady=12, fill="x")
-        res_inner.grid_columnconfigure((0, 1, 2), weight=1)
-        self.width_entry = ctk.CTkEntry(res_inner, placeholder_text="Width", height=32)
+        card_resolution = ctk.CTkFrame(self.col1, corner_radius=8)
+        card_resolution.pack(fill="x", padx=5, pady=5)
+        resolution_inner = ctk.CTkFrame(card_resolution, fg_color="transparent")
+        resolution_inner.pack(padx=5, pady=5, fill="x")
+        resolution_inner.grid_columnconfigure((0, 1, 2), weight=1)
+        self.width_entry = ctk.CTkEntry(resolution_inner, placeholder_text="Width", height=28)
         self.width_entry.grid(row=0, column=0, padx=(0, 5), sticky="we")
-        self.width_entry.insert(0, str(self.width)); self.width_entry.bind("<KeyRelease>", lambda e: self.update_res_from_ui(e, "width"))
-        self.height_entry = ctk.CTkEntry(res_inner, placeholder_text="Height", height=32)
-        self.height_entry.grid(row=0, column=1, padx=5, sticky="we")
-        self.height_entry.insert(0, str(self.height)); self.height_entry.bind("<KeyRelease>", lambda e: self.update_res_from_ui(e, "height"))
-        self.ratio_combo = ctk.CTkComboBox(res_inner, values=["Free", "16:9", "4:3", "21:9"], height=32, command=lambda v: self.update_res_from_ui(None, "ratio"))
-        self.ratio_combo.grid(row=0, column=2, padx=(5, 0), sticky="we"); self.ratio_combo.set("Free")
+        self.width_entry.insert(0, str(self.width)); self.width_entry.bind("<KeyRelease>", lambda event: self.update_resolution_from_ui(event, "width"))
+        self.height_entry = ctk.CTkEntry(resolution_inner, placeholder_text="Height", height=28)
+        self.height_entry.grid(row=0, column=1, padx=2, sticky="we")
+        self.height_entry.insert(0, str(self.height)); self.height_entry.bind("<KeyRelease>", lambda event: self.update_resolution_from_ui(event, "height"))
+        self.ratio_combobox = ctk.CTkComboBox(resolution_inner, values=["Free", "16:9", "4:3", "21:9"], height=28, command=lambda value: self.update_resolution_from_ui(None, "ratio"))
+        self.ratio_combobox.grid(row=0, column=2, padx=(5, 0), sticky="we"); self.ratio_combobox.set("Free")
 
-        ctrl_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        ctrl_frame.pack(fill="x", pady=8)
-        self.topmost_check = ctk.CTkCheckBox(ctrl_frame, text="Always On Top", font=ctk.CTkFont(size=13), command=self.toggle_always_on_top)
-        self.topmost_check.pack(side="left", padx=5)
-        if self.always_on_top_val: self.topmost_check.select()
-        ctk.CTkLabel(ctrl_frame, text="Delay (s):", font=ctk.CTkFont(size=13)).pack(side="left", padx=(15, 5))
-        self.cd_entry = ctk.CTkEntry(ctrl_frame, width=50, height=28); self.cd_entry.insert(0, str(self.countdown_val))
-        self.cd_entry.pack(side="left"); self.cd_entry.bind("<KeyRelease>", self.update_cd_from_entry)
+        control_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        control_frame.pack(fill="x", padx=5, pady=5)
+        self.topmost_checkbox = ctk.CTkCheckBox(control_frame, text="Always On Top", font=ctk.CTkFont(size=13), command=self.toggle_always_on_top)
+        self.topmost_checkbox.pack(side="left", padx=5)
+        if self.always_on_top_val: self.topmost_checkbox.select()
+        ctk.CTkLabel(control_frame, text="Delay (s):", font=ctk.CTkFont(size=13)).pack(side="left", padx=(10, 5))
+        self.countdown_entry = ctk.CTkEntry(control_frame, width=45, height=26); self.countdown_entry.insert(0, str(self.countdown_val))
+        self.countdown_entry.pack(side="left"); self.countdown_entry.bind("<KeyRelease>", self.update_countdown_from_entry)
 
-        # Updated Action Frame with Reload Config and Open Folder mapped to Row 1
-        act_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        act_frame.pack(fill="x", pady=5)
-        act_frame.grid_columnconfigure((0, 1), weight=1)
-        
-        # Row 0: Capture & Apply
-        ctk.CTkButton(act_frame, text="Capture", height=36, font=ctk.CTkFont(size=14, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.check_save)).grid(row=0, column=0, padx=5, pady=5, sticky="we")
-        ctk.CTkButton(act_frame, text="Apply", height=36, font=ctk.CTkFont(size=14, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.resize_only)).grid(row=0, column=1, padx=5, pady=5, sticky="we")
-        
-        # Row 1: Reload Config & Open Folder
-        ctk.CTkButton(act_frame, text="Reload Config", height=32, command=self.reload_ui_config).grid(row=1, column=0, padx=5, pady=5, sticky="we")
-        ctk.CTkButton(act_frame, text="Open Folder", height=32, command=self.open_folder).grid(row=1, column=1, padx=5, pady=5, sticky="we")
+        action_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        action_frame.pack(fill="x", padx=5, pady=5)
+        action_frame.grid_columnconfigure((0, 1), weight=1)
+        ctk.CTkButton(action_frame, text="Capture Active", height=32, font=ctk.CTkFont(size=13, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.check_save)).grid(row=0, column=0, padx=2, pady=2, sticky="we")
+        ctk.CTkButton(action_frame, text="Apply Active", height=32, font=ctk.CTkFont(size=13, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.resize_only)).grid(row=0, column=1, padx=2, pady=2, sticky="we")
+        ctk.CTkButton(action_frame, text="Reload Config", height=28, command=self.reload_ui_config).grid(row=1, column=0, padx=2, pady=2, sticky="we")
+        ctk.CTkButton(action_frame, text="Open Folder", height=28, command=self.open_folder).grid(row=1, column=1, padx=2, pady=2, sticky="we")
 
-        self.focus_box = ctk.CTkTextbox(main_frame, height=36, corner_radius=8, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=13, weight="bold"))
-        self.focus_box.pack(fill="x", pady=8); self.focus_box.configure(state="disabled")
+        self.focus_box = ctk.CTkTextbox(self.col1, height=32, corner_radius=6, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=12, weight="bold"))
+        self.focus_box.pack(fill="x", padx=5, pady=5); self.focus_box.configure(state="disabled")
 
-        pos_frame = ctk.CTkFrame(main_frame, corner_radius=12, fg_color="#2B2B2B")
-        pos_frame.pack(pady=10) 
-        
+        position_frame = ctk.CTkFrame(self.col1, corner_radius=8, fg_color="#2B2B2B")
+        position_frame.pack(pady=5) 
         symbols = [("↖", "1"), ("↑", "2"), ("↗", "3"), ("←", "4"), ("•", "5"), ("→", "6"), ("↙", "7"), ("↓", "8"), ("↘", "9")]
-        for i, (sym, cmd) in enumerate(symbols):
-            r, c = divmod(i, 3)
-            ctk.CTkButton(pos_frame, text=sym, width=64, height=64, font=ctk.CTkFont(size=32, weight="bold"), 
-                          fg_color="#1F6AA5", corner_radius=8, 
-                          command=lambda m=cmd: self.delayed_action(lambda: self.move_window(m))
-                         ).grid(row=r, column=c, padx=6, pady=6)
-
-        card_presets = ctk.CTkFrame(main_frame, corner_radius=10)
-        card_presets.pack(fill="both", expand=True, pady=5)
-        preset_top = ctk.CTkFrame(card_presets, fg_color="transparent")
-        preset_top.pack(fill="x", padx=10, pady=(12, 5))
-        self.preset_name_entry = ctk.CTkEntry(preset_top, placeholder_text="Preset Name...", height=32)
-        self.preset_name_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        for i, (symbol, command) in enumerate(symbols):
+            row, col = divmod(i, 3)
+            ctk.CTkButton(position_frame, text=symbol, width=46, height=46, font=ctk.CTkFont(size=20, weight="bold"), 
+                          fg_color="#1F6AA5", corner_radius=6, 
+                          command=lambda m=command: self.delayed_action(lambda: self.move_window(m))
+                         ).grid(row=row, column=col, padx=4, pady=4)
+                         
+        footer1 = ctk.CTkFrame(self.col1, fg_color="transparent", height=20)
+        footer1.pack(side="bottom", fill="x", padx=5, pady=2)
+        self.status_label = ctk.CTkLabel(footer1, text="Ready", font=ctk.CTkFont(size=13, weight="bold"), text_color="gray")
+        self.status_label.pack(side="left")
         
+        self.col1_width_lbl = ctk.CTkEntry(footer1, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.col1_width_lbl.pack(side="right")
+        self.col1_width_lbl.insert(0, f"{self.col1_width}px")
+        self.col1_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(1))
+
+    def setup_col2(self):
+        header2 = ctk.CTkFrame(self.col2, fg_color="transparent")
+        header2.pack(fill="x", padx=5, pady=(5, 2))
+        ctk.CTkLabel(header2, text="Presets", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        ctk.CTkButton(header2, text="↺", width=28, height=28, fg_color="#34495E", hover_color="#2C3E50", command=lambda: self.reset_pane_size(2)).pack(side="right")
+        
+        search_frame = ctk.CTkFrame(self.col2, fg_color="transparent")
+        search_frame.pack(fill="x", padx=5, pady=2)
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search Presets...", height=28)
+        self.search_entry.pack(fill="x", expand=True)
+        self.search_entry.bind("<KeyRelease>", lambda event: self.update_preset_list(self.search_entry.get()))
+        
+        preset_top = ctk.CTkFrame(self.col2, fg_color="transparent")
+        preset_top.pack(fill="x", padx=5, pady=2)
+        self.preset_name_entry = ctk.CTkEntry(preset_top, placeholder_text="New Preset...", height=28)
+        self.preset_name_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         self.preset_name_entry.bind("<KeyRelease>", self._track_preset_text)
         self.preset_name_entry.bind("<Control-z>", self._undo_preset_text)
         self.preset_name_entry.bind("<Control-y>", self._redo_preset_text)
         self.preset_name_entry.bind("<Return>", self._save_preset_event)
+        ctk.CTkButton(preset_top, text="Save", width=60, height=28, font=ctk.CTkFont(weight="bold"), command=self.save_preset).pack(side="right")
         
-        ctk.CTkButton(preset_top, text="Save", width=70, height=32, font=ctk.CTkFont(weight="bold"), command=self.save_preset).pack(side="right")
-        self.presets_frame = ctk.CTkScrollableFrame(card_presets, fg_color="transparent")
-        self.presets_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.presets_frame = ctk.CTkScrollableFrame(self.col2, fg_color="transparent")
+        self.presets_frame.pack(fill="both", expand=True, padx=5, pady=(2, 5))
         self.update_preset_list()
+
+        footer2 = ctk.CTkFrame(self.col2, fg_color="transparent", height=20)
+        footer2.pack(side="bottom", fill="x", padx=5, pady=2)
         
-        self.status_label = ctk.CTkLabel(main_frame, text="Ready", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
-        self.status_label.pack(pady=(5, 0))
+        self.col2_width_lbl = ctk.CTkEntry(footer2, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.col2_width_lbl.pack(side="right")
+        self.col2_width_lbl.insert(0, f"{self.col2_width}px")
+        self.col2_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(2))
+
+    def setup_col3(self):
+        header3 = ctk.CTkFrame(self.col3, fg_color="transparent")
+        header3.pack(fill="x", padx=5, pady=(5, 2))
+        ctk.CTkLabel(header3, text="Automatic Profiles", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        ctk.CTkButton(header3, text="↺", width=28, height=28, fg_color="#34495E", hover_color="#2C3E50", command=lambda: self.reset_pane_size(3)).pack(side="right", padx=(5,0))
+        ctk.CTkButton(header3, text="Add Rule", width=80, height=28, command=self.add_empty_autoset).pack(side="right", padx=(5,0))
+        ctk.CTkButton(header3, text="Add Target", width=100, height=28, fg_color="#27AE60", hover_color="#2ECC71", command=lambda: self.delayed_action(self.add_current_autoset)).pack(side="right")
+
+        self.autosets_frame = ctk.CTkScrollableFrame(self.col3, fg_color="transparent")
+        self.autosets_frame.pack(fill="both", expand=True, padx=2, pady=2)
+        self.render_autosets()
+        
+        footer3 = ctk.CTkFrame(self.col3, fg_color="transparent", height=20)
+        footer3.pack(side="bottom", fill="x", padx=5, pady=2)
+        
+        self.col3_width_lbl = ctk.CTkEntry(footer3, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.col3_width_lbl.pack(side="right")
+        self.col3_width_lbl.insert(0, f"{self.col3_width}px")
+        self.col3_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(3))
+
+    def add_empty_autoset(self):
+        new_set = {"executable": "", "width": self.width, "height": self.height, "x_position": 0, "y_position": 0, "automatic_position": False, "automatic_size": False, "trigger": "On Focus"}
+        self.autosets.append(new_set)
+        self.save_config()
+        self.render_autosets()
+
+    def add_current_autoset(self):
+        active_window = gw.getActiveWindow()
+        if active_window and active_window.title != self.title():
+            try:
+                hwnd = active_window._hWnd
+                _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+                executable_name = self.get_process_name_cached(process_id)
+                
+                left_offset, top_offset, right_offset, bottom_offset = self.get_window_offsets(hwnd)
+                x_position = active_window.left + left_offset
+                y_position = active_window.top + top_offset
+                window_width = active_window.width - left_offset - right_offset
+                window_height = active_window.height - top_offset - bottom_offset
+                
+                new_set = {"executable": executable_name, "width": window_width, "height": window_height, "x_position": x_position, "y_position": y_position, "automatic_position": True, "automatic_size": True, "trigger": "On Focus"}
+                self.autosets.append(new_set)
+                self.save_config()
+                self.render_autosets()
+                self.set_status(f"Added Automatic Set: {executable_name}", "#2ECC71")
+            except Exception: 
+                log_exception("add_current_autoset")
+                self.set_status("Failed to add target", "#E74C3C")
+        else: self.set_status("No valid target found", "#E74C3C")
+
+    def move_autoset(self, index, direction):
+        if direction == "up" and index > 0:
+            self.autosets[index], self.autosets[index-1] = self.autosets[index-1], self.autosets[index]
+        elif direction == "down" and index < len(self.autosets) - 1:
+            self.autosets[index], self.autosets[index+1] = self.autosets[index+1], self.autosets[index]
+        self.save_config()
+        self.render_autosets()
+
+    def remove_autoset(self, index):
+        if 0 <= index < len(self.autosets):
+            self.autosets.pop(index)
+            self.save_config()
+            self.render_autosets()
+
+    def update_autoset_data(self, index, key, value):
+        if 0 <= index < len(self.autosets):
+            self.autosets[index][key] = value
+            self.save_config()
+
+    def render_autosets(self):
+        for widget in self.autosets_frame.winfo_children(): widget.destroy()
+        
+        for index, autoset in enumerate(self.autosets):
+            card = ctk.CTkFrame(self.autosets_frame, corner_radius=6, border_width=1, border_color="#34495E")
+            card.pack(fill="x", pady=3, padx=2)
+            
+            row1 = ctk.CTkFrame(card, fg_color="transparent")
+            row1.pack(fill="x", padx=5, pady=(5, 2))
+            executable_entry = ctk.CTkEntry(row1, placeholder_text="Target Executable", height=26)
+            executable_entry.pack(side="left", fill="x", expand=True)
+            executable_entry.insert(0, autoset.get("executable", ""))
+            executable_entry.bind("<FocusOut>", lambda event, i=index, widget=executable_entry: self.update_autoset_data(i, "executable", widget.get()))
+            
+            ctk.CTkButton(row1, text="↑", width=26, height=26, command=lambda i=index: self.move_autoset(i, "up")).pack(side="left", padx=(4,0))
+            ctk.CTkButton(row1, text="↓", width=26, height=26, command=lambda i=index: self.move_autoset(i, "down")).pack(side="left", padx=(2,0))
+            ctk.CTkButton(row1, text="X", width=26, height=26, fg_color="#E74C3C", hover_color="#C0392B", command=lambda i=index: self.remove_autoset(i)).pack(side="left", padx=(4,0))
+
+            row2 = ctk.CTkFrame(card, fg_color="transparent")
+            row2.pack(fill="x", padx=5, pady=2)
+            
+            size_checkbox = ctk.CTkCheckBox(row2, text="Auto Size", width=95, command=lambda i=index, widgets=locals(): self.update_autoset_data(i, "automatic_size", widgets['size_checkbox'].get()))
+            size_checkbox.pack(side="left")
+            if autoset.get("automatic_size", False): size_checkbox.select()
+            
+            width_entry = ctk.CTkEntry(row2, placeholder_text="Width", width=65, height=26)
+            width_entry.pack(side="left", padx=2)
+            width_entry.insert(0, str(autoset.get("width", 0)))
+            width_entry.bind("<FocusOut>", lambda event, i=index, widget=width_entry: self.update_autoset_data(i, "width", int(widget.get() or 0)))
+            
+            height_entry = ctk.CTkEntry(row2, placeholder_text="Height", width=65, height=26)
+            height_entry.pack(side="left", padx=2)
+            height_entry.insert(0, str(autoset.get("height", 0)))
+            height_entry.bind("<FocusOut>", lambda event, i=index, widget=height_entry: self.update_autoset_data(i, "height", int(widget.get() or 0)))
+
+            trigger_combobox = ctk.CTkComboBox(row2, values=["On Focus", "Always"], height=26, command=lambda value, i=index: self.update_autoset_data(i, "trigger", value))
+            trigger_combobox.pack(side="right")
+            trigger_combobox.set(autoset.get("trigger", "On Focus"))
+
+            row3 = ctk.CTkFrame(card, fg_color="transparent")
+            row3.pack(fill="x", padx=5, pady=(2, 5))
+            
+            position_checkbox = ctk.CTkCheckBox(row3, text="Auto Position", width=95, command=lambda i=index, widgets=locals(): self.update_autoset_data(i, "automatic_position", widgets['position_checkbox'].get()))
+            position_checkbox.pack(side="left")
+            if autoset.get("automatic_position", False): position_checkbox.select()
+            
+            x_position_entry = ctk.CTkEntry(row3, placeholder_text="X Position", width=65, height=26)
+            x_position_entry.pack(side="left", padx=2)
+            x_position_entry.insert(0, str(autoset.get("x_position", 0)))
+            x_position_entry.bind("<FocusOut>", lambda event, i=index, widget=x_position_entry: self.update_autoset_data(i, "x_position", int(widget.get() or 0)))
+            
+            y_position_entry = ctk.CTkEntry(row3, placeholder_text="Y Position", width=65, height=26)
+            y_position_entry.pack(side="left", padx=2)
+            y_position_entry.insert(0, str(autoset.get("y_position", 0)))
+            y_position_entry.bind("<FocusOut>", lambda event, i=index, widget=y_position_entry: self.update_autoset_data(i, "y_position", int(widget.get() or 0)))
 
     def update_config_label(self):
-        val = f"{self.width}x{self.height}" if self.width else "None"
-        self.config_label.configure(text=f"[{val}]")
+        value = f"{self.width}x{self.height}" if self.width else "None"
+        self.config_label.configure(text=f"[{value}]")
+
+    def get_process_name_cached(self, process_id):
+        try:
+            process = psutil.Process(process_id)
+            create_time = process.create_time()
+            if process_id in self.pid_cache:
+                cached_name, cached_time = self.pid_cache[process_id]
+                if cached_time == create_time:
+                    return cached_name
+            
+            name = process.name().lower()
+            self.pid_cache[process_id] = (name, create_time)
+            return name
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return ""
 
     def get_active_process_name(self):
         try:
             hwnd = win32gui.GetForegroundWindow()
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            return psutil.Process(pid).name()
+            _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+            return self.get_process_name_cached(process_id)
         except: return "Unknown"
 
-    def update_focus_display(self, exe_name):
-        self.focus_box.configure(state="normal"); self.focus_box.delete("1.0", "end"); self.focus_box.insert("1.0", f"> {exe_name}"); self.focus_box.configure(state="disabled")
+    def update_focus_display(self, executable_name):
+        self.focus_box.configure(state="normal")
+        self.focus_box.delete("1.0", "end")
+        self.focus_box.insert("1.0", f"> {executable_name}")
+        self.focus_box.configure(state="disabled")
+        
+    def open_folder(self):
+        os.startfile(os.path.dirname(os.path.abspath(__file__)))
 
     def start_focus_tracker(self):
         def track():
             while True:
+                if getattr(self, "is_resizing", False):
+                    time.sleep(0.3)
+                    continue
                 try:
-                    exe = self.get_active_process_name()
-                    self.after(0, lambda e=exe: self.update_focus_display(e))
-                except: pass
+                    executable = self.get_active_process_name()
+                    self.after(0, lambda e=executable: self.update_focus_display(e))
+                except Exception: pass
                 time.sleep(0.5)
         threading.Thread(target=track, daemon=True).start()
 
-    def delayed_action(self, action_func):
-        def countdown():
-            for i in range(self.countdown_val, 0, -1):
-                self.after(0, lambda x=i: self.set_status(f"Waiting... {x}s", "#E67E22", auto_reset=False)); time.sleep(1)
-            self.after(0, action_func)
-        threading.Thread(target=countdown, daemon=True).start()
+    def get_window_offsets(self, hwnd):
+        try:
+            win_rect = wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+            
+            dwm_rect = wintypes.RECT()
+            ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(dwm_rect), ctypes.sizeof(dwm_rect))
+            
+            left_offset = dwm_rect.left - win_rect.left
+            top_offset = dwm_rect.top - win_rect.top
+            right_offset = win_rect.right - dwm_rect.right
+            bottom_offset = win_rect.bottom - dwm_rect.bottom
+            
+            return left_offset, top_offset, right_offset, bottom_offset
+        except Exception:
+            return 0, 0, 0, 0
+
+    def start_auto_enforcer(self):
+        def enforcer_loop():
+            last_focus = 0
+            while True:
+                time.sleep(0.5)
+                if not self.autosets:
+                    continue
+                if getattr(self, "is_resizing", False):
+                    continue
+                
+                try:
+                    current_active = win32gui.GetForegroundWindow()
+                    
+                    has_always_trigger = any(rule.get("trigger") == "Always" for rule in self.autosets)
+                    hwnds = []
+                    
+                    if has_always_trigger:
+                        def enumerate_callback(hwnd, result):
+                            if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd):
+                                result.append(hwnd)
+                        win32gui.EnumWindows(enumerate_callback, hwnds)
+                    else:
+                        if current_active and current_active != 0:
+                            hwnds = [current_active]
+                    
+                    for hwnd in hwnds:
+                        try:
+                            _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+                            executable_name = self.get_process_name_cached(process_id)
+                            if not executable_name: continue
+                        except: continue
+
+                        is_minimized = win32gui.IsIconic(hwnd)
+                        is_focused = (hwnd == current_active)
+                        was_focused = (hwnd == last_focus)
+
+                        for rule in self.autosets:
+                            rule_executable = rule.get("executable", "").strip().lower()
+                            if not rule_executable or executable_name != rule_executable:
+                                continue
+                                
+                            trigger_mode = rule.get("trigger", "On Focus")
+                            do_enforce = False
+                            
+                            if trigger_mode == "Always" and not is_minimized:
+                                do_enforce = True
+                            elif trigger_mode == "On Focus" and is_focused and not was_focused:
+                                do_enforce = True
+                                
+                            if do_enforce:
+                                try:
+                                    win_rect = wintypes.RECT()
+                                    ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+                                    
+                                    left_offset, top_offset, right_offset, bottom_offset = self.get_window_offsets(hwnd)
+                                    
+                                    needs_move = False
+                                    needs_resize = False
+                                    
+                                    current_x = win_rect.left + left_offset
+                                    current_y = win_rect.top + top_offset
+                                    current_width = (win_rect.right - win_rect.left) - left_offset - right_offset
+                                    current_height = (win_rect.bottom - win_rect.top) - top_offset - bottom_offset
+                                    
+                                    if rule.get("automatic_position", False):
+                                        if current_x != rule.get("x_position", 0) or current_y != rule.get("y_position", 0):
+                                            needs_move = True
+                                            
+                                    if rule.get("automatic_size", False):
+                                        if current_width != rule.get("width", 0) or current_height != rule.get("height", 0):
+                                            needs_resize = True
+
+                                    if needs_move or needs_resize:
+                                        new_x = rule.get("x_position", current_x) if needs_move else current_x
+                                        new_y = rule.get("y_position", current_y) if needs_move else current_y
+                                        new_width = rule.get("width", current_width) if needs_resize else current_width
+                                        new_height = rule.get("height", current_height) if needs_resize else current_height
+                                        
+                                        final_x = new_x - left_offset
+                                        final_y = new_y - top_offset
+                                        final_width = new_width + left_offset + right_offset
+                                        final_height = new_height + top_offset + bottom_offset
+                                        
+                                        flags = 0x0004 | 0x0010 
+                                        if not needs_move: flags |= 0x0002
+                                        if not needs_resize: flags |= 0x0001
+                                        win32gui.SetWindowPos(hwnd, 0, final_x, final_y, final_width, final_height, flags)
+                                except Exception:
+                                    log_exception("enforcer")
+                    last_focus = current_active
+                except Exception:
+                    pass
+        threading.Thread(target=enforcer_loop, daemon=True).start()
+
+    def delayed_action(self, function):
+        def wrapper():
+            for index in range(self.countdown_val, 0, -1):
+                self.set_status(f"Action in {index}s...", "#F39C12", auto_reset=False)
+                time.sleep(1)
+            self.after(0, function)
+        threading.Thread(target=wrapper, daemon=True).start()
 
     def check_save(self):
-        active = gw.getActiveWindow()
-        if active and active.title != self.title():
-            if self.save_config(active.width, active.height, self.always_on_top_val, self.countdown_val):
-                self.pending_resize = True
-                self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(active.width))
-                self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(active.height))
-                self.ratio_combo.set("Free")
-                self.set_status(f"Captured: {active.width}x{active.height}", "#2ECC71")
-        else: self.set_status("Error: No Target", "#E74C3C")
-
-    def reload_ui_config(self):
-        self.width, self.height, self.always_on_top_val, self.countdown_val = self.load_config()
-        self.width_entry.delete(0, "end"); self.width_entry.insert(0, str(self.width))
-        self.height_entry.delete(0, "end"); self.height_entry.insert(0, str(self.height))
-        self.ratio_combo.set("Free")
-        self.update_preset_list(); self.update_config_label(); self.set_status("Reloaded")
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd:
+            win_rect = wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+            left_offset, top_offset, right_offset, bottom_offset = self.get_window_offsets(hwnd)
+            window_width = (win_rect.right - win_rect.left) - left_offset - right_offset
+            window_height = (win_rect.bottom - win_rect.top) - top_offset - bottom_offset
+            self.width_entry.delete(0, "end")
+            self.width_entry.insert(0, str(window_width))
+            self.height_entry.delete(0, "end")
+            self.height_entry.insert(0, str(window_height))
+            self.update_resolution_from_ui()
+            self.set_status("Captured active window size", "#2ECC71")
 
     def resize_only(self):
-        active = gw.getActiveWindow()
-        if active: 
-            active.restore()
-            active.resizeTo(self.width, self.height)
-            self.pending_resize = False
-            self.set_status("Applied", "#2ECC71")
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd and self.width and self.height:
+            left_offset, top_offset, right_offset, bottom_offset = self.get_window_offsets(hwnd)
+            final_width = self.width + left_offset + right_offset
+            final_height = self.height + top_offset + bottom_offset
+            win32gui.SetWindowPos(hwnd, 0, 0, 0, final_width, final_height, 0x0002 | 0x0004 | 0x0010)
+            self.set_status("Resized active window", "#2ECC71")
 
-    def get_window_offsets(self, hwnd):
-        rect = wintypes.RECT()
-        ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(rect), ctypes.sizeof(rect))
+    def reload_ui_config(self):
+        self.width, self.height, self.always_on_top_val, self.countdown_val, self.col1_width, self.col2_width, self.col3_width = self.load_config()
+        self.width_entry.delete(0, "end")
+        self.width_entry.insert(0, str(self.width))
+        self.height_entry.delete(0, "end")
+        self.height_entry.insert(0, str(self.height))
+        self.countdown_entry.delete(0, "end")
+        self.countdown_entry.insert(0, str(self.countdown_val))
+        
+        self.paned_window.paneconfig(self.col1, width=self.col1_width)
+        self.paned_window.paneconfig(self.col2, width=self.col2_width)
+        self.paned_window.paneconfig(self.col3, width=self.col3_width)
+        self.update_pane_labels()
+        
+        if self.always_on_top_val:
+            self.topmost_checkbox.select()
+        else:
+            self.topmost_checkbox.deselect()
+            
+        self.update_config_label()
+        self.update_preset_list()
+        self.render_autosets()
+        self.set_status("Configuration Reloaded", "#3498DB")
+
+    def move_window(self, position):
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd: return
+        
+        monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromWindow(hwnd))
+        work_area = monitor_info['Work']
+        monitor_width, monitor_height = work_area[2] - work_area[0], work_area[3] - work_area[1]
+        monitor_x, monitor_y = work_area[0], work_area[1]
+        
         win_rect = wintypes.RECT()
         ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
-        return rect.left - win_rect.left, rect.top - win_rect.top, win_rect.right - rect.right, win_rect.bottom - rect.bottom
-
-    def move_window(self, pos_key):
-        active = gw.getActiveWindow()
-        if active:
-            hwnd = active._hWnd
-            
-            if self.pending_resize and self.width and self.height:
-                active.restore()
-                active.resizeTo(self.width, self.height)
-                self.pending_resize = False
-                msg = "Resized & Moved"
-            else:
-                msg = "Moved"
-
-            monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromWindow(hwnd))
-            work_area = monitor_info['Work']
-            
-            start_x = work_area[0]
-            start_y = work_area[1]
-            sw = work_area[2] - work_area[0]
-            sh = work_area[3] - work_area[1]
-            
-            l_off, t_off, r_off, b_off = self.get_window_offsets(hwnd)
-            
-            real_w = active.width - l_off - r_off
-            real_h = active.height - t_off - b_off
-            
-            cx = start_x + (sw - real_w) // 2
-            cy = start_y + (sh - real_h) // 2
-            
-            coords = {
-                "1": (start_x, start_y), 
-                "2": (cx, start_y), 
-                "3": (start_x + sw - real_w, start_y), 
-                "4": (start_x, cy), 
-                "5": (cx, cy), 
-                "6": (start_x + sw - real_w, cy), 
-                "7": (start_x, start_y + sh - real_h), 
-                "8": (cx, start_y + sh - real_h), 
-                "9": (start_x + sw - real_w, start_y + sh - real_h)
-            }
-            
-            nx, ny = coords[pos_key]
-            active.restore()
-            active.moveTo(nx - l_off, ny - t_off)
-            self.set_status(msg, "#2ECC71")
-
-    def open_folder(self): os.startfile(os.path.dirname(os.path.abspath(__file__)))
+        
+        left_offset, top_offset, right_offset, bottom_offset = self.get_window_offsets(hwnd)
+        current_width = (win_rect.right - win_rect.left) - left_offset - right_offset
+        current_height = (win_rect.bottom - win_rect.top) - top_offset - bottom_offset
+        
+        new_x, new_y = monitor_x, monitor_y
+        
+        if position in ("1", "4", "7"): new_x = monitor_x
+        elif position in ("2", "5", "8"): new_x = monitor_x + (monitor_width - current_width) // 2
+        elif position in ("3", "6", "9"): new_x = monitor_x + monitor_width - current_width
+        
+        if position in ("1", "2", "3"): new_y = monitor_y
+        elif position in ("4", "5", "6"): new_y = monitor_y + (monitor_height - current_height) // 2
+        elif position in ("7", "8", "9"): new_y = monitor_y + monitor_height - current_height
+        
+        final_x = new_x - left_offset
+        final_y = new_y - top_offset
+        final_width = current_width + left_offset + right_offset
+        final_height = current_height + top_offset + bottom_offset
+        
+        win32gui.SetWindowPos(hwnd, 0, final_x, final_y, final_width, final_height, 0x0004 | 0x0010)
+        self.set_status(f"Moved Window to position {position}", "#2ECC71")
 
 if __name__ == "__main__":
     app = WindowManagerGUI()
