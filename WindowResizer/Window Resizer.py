@@ -160,6 +160,7 @@ class WindowManagerGUI(ctk.CTk):
                         "y_position": rule.get("y_position", rule.get("y", 0)),
                         "automatic_position": rule.get("automatic_position", rule.get("pos", False)),
                         "automatic_size": rule.get("automatic_size", rule.get("size", False)),
+                        "hide_titlebar": rule.get("hide_titlebar", False),
                         "trigger": rule.get("trigger", "On Focus")
                     })
             except:
@@ -521,6 +522,8 @@ class WindowManagerGUI(ctk.CTk):
                           fg_color="#1F6AA5", corner_radius=6, 
                           command=lambda m=command: self.delayed_action(lambda: self.move_window(m))
                          ).grid(row=row, column=col, padx=4, pady=4)
+
+        ctk.CTkButton(self.column1, text="Toggle Titlebar", height=32, font=ctk.CTkFont(size=13, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.toggle_title_bar)).pack(pady=(0, 5), padx=5, fill="x")
                          
         footer1 = ctk.CTkFrame(self.column1, fg_color="transparent", height=20)
         footer1.pack(side="bottom", fill="x", padx=5, pady=2)
@@ -586,8 +589,20 @@ class WindowManagerGUI(ctk.CTk):
         self.column3_width_label.insert(0, f"{self.column3_width}px")
         self.column3_width_label.bind("<Return>", lambda e: self.apply_manual_pane_size(3))
 
+    def toggle_title_bar(self):
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd:
+            style = win32gui.GetWindowLong(hwnd, -16)
+            if style & 0x00C00000:
+                win32gui.SetWindowLong(hwnd, -16, style & ~0x00C40000)
+                self.set_status("Titlebar hidden", "#2ECC71")
+            else:
+                win32gui.SetWindowLong(hwnd, -16, style | 0x00C40000)
+                self.set_status("Titlebar shown", "#2ECC71")
+            win32gui.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020 | 0x0002 | 0x0001 | 0x0004)
+
     def add_empty_autoset(self):
-        new_set = {"executable": "", "width": self.width, "height": self.height, "x_position": 0, "y_position": 0, "automatic_position": False, "automatic_size": False, "trigger": "On Focus"}
+        new_set = {"executable": "", "width": self.width, "height": self.height, "x_position": 0, "y_position": 0, "automatic_position": False, "automatic_size": False, "hide_titlebar": False, "trigger": "On Focus"}
         self.autosets.append(new_set)
         self.save_config()
         self.render_autosets()
@@ -606,7 +621,7 @@ class WindowManagerGUI(ctk.CTk):
                 window_width = active_window.width - left_offset - right_offset
                 window_height = active_window.height - top_offset - bottom_offset
                 
-                new_set = {"executable": executable_name, "width": window_width, "height": window_height, "x_position": x_position, "y_position": y_position, "automatic_position": True, "automatic_size": True, "trigger": "On Focus"}
+                new_set = {"executable": executable_name, "width": window_width, "height": window_height, "x_position": x_position, "y_position": y_position, "automatic_position": True, "automatic_size": True, "hide_titlebar": False, "trigger": "On Focus"}
                 self.autosets.append(new_set)
                 self.save_config()
                 self.render_autosets()
@@ -656,7 +671,8 @@ class WindowManagerGUI(ctk.CTk):
             row2 = ctk.CTkFrame(card, fg_color="transparent")
             row2.pack(fill="x", padx=5, pady=2)
             
-            size_checkbox = ctk.CTkCheckBox(row2, text="Auto Size", width=95, command=lambda i=index, widgets=locals(): self.update_autoset_data(i, "automatic_size", widgets['size_checkbox'].get()))
+            size_checkbox = ctk.CTkCheckBox(row2, text="Auto Size", width=95)
+            size_checkbox.configure(command=lambda i=index, cb=size_checkbox: self.update_autoset_data(i, "automatic_size", cb.get()))
             size_checkbox.pack(side="left")
             if autoset.get("automatic_size", False): size_checkbox.select()
             
@@ -677,19 +693,25 @@ class WindowManagerGUI(ctk.CTk):
             row3 = ctk.CTkFrame(card, fg_color="transparent")
             row3.pack(fill="x", padx=5, pady=(2, 5))
             
-            position_checkbox = ctk.CTkCheckBox(row3, text="Auto Position", width=95, command=lambda i=index, widgets=locals(): self.update_autoset_data(i, "automatic_position", widgets['position_checkbox'].get()))
+            position_checkbox = ctk.CTkCheckBox(row3, text="Auto Position", width=95)
+            position_checkbox.configure(command=lambda i=index, cb=position_checkbox: self.update_autoset_data(i, "automatic_position", cb.get()))
             position_checkbox.pack(side="left")
             if autoset.get("automatic_position", False): position_checkbox.select()
             
-            x_position_entry = ctk.CTkEntry(row3, placeholder_text="X Position", width=65, height=26)
+            x_position_entry = ctk.CTkEntry(row3, placeholder_text="X", width=55, height=26)
             x_position_entry.pack(side="left", padx=2)
             x_position_entry.insert(0, str(autoset.get("x_position", 0)))
             x_position_entry.bind("<FocusOut>", lambda event, i=index, widget=x_position_entry: self.update_autoset_data(i, "x_position", int(widget.get() or 0)))
             
-            y_position_entry = ctk.CTkEntry(row3, placeholder_text="Y Position", width=65, height=26)
+            y_position_entry = ctk.CTkEntry(row3, placeholder_text="Y", width=55, height=26)
             y_position_entry.pack(side="left", padx=2)
             y_position_entry.insert(0, str(autoset.get("y_position", 0)))
             y_position_entry.bind("<FocusOut>", lambda event, i=index, widget=y_position_entry: self.update_autoset_data(i, "y_position", int(widget.get() or 0)))
+
+            titlebar_checkbox = ctk.CTkCheckBox(row3, text="Hide Titlebar", width=95)
+            titlebar_checkbox.configure(command=lambda i=index, cb=titlebar_checkbox: self.update_autoset_data(i, "hide_titlebar", cb.get()))
+            titlebar_checkbox.pack(side="right")
+            if autoset.get("hide_titlebar", False): titlebar_checkbox.select()
 
     def update_config_label(self):
         value = f"{self.width}x{self.height}" if self.width else "None"
@@ -814,6 +836,7 @@ class WindowManagerGUI(ctk.CTk):
                                     
                                     needs_move = False
                                     needs_resize = False
+                                    needs_style = False
                                     
                                     current_x = win_rect.left + left_offset
                                     current_y = win_rect.top + top_offset
@@ -828,7 +851,18 @@ class WindowManagerGUI(ctk.CTk):
                                         if current_width != rule.get("width", 0) or current_height != rule.get("height", 0):
                                             needs_resize = True
 
-                                    if needs_move or needs_resize:
+                                    style = win32gui.GetWindowLong(hwnd, -16)
+                                    wants_hidden = rule.get("hide_titlebar", False)
+                                    is_hidden = not (style & 0x00C00000)
+                                    
+                                    if wants_hidden and not is_hidden:
+                                        win32gui.SetWindowLong(hwnd, -16, style & ~0x00C40000)
+                                        needs_style = True
+                                    elif not wants_hidden and is_hidden:
+                                        win32gui.SetWindowLong(hwnd, -16, style | 0x00C40000)
+                                        needs_style = True
+
+                                    if needs_move or needs_resize or needs_style:
                                         new_x = rule.get("x_position", current_x) if needs_move else current_x
                                         new_y = rule.get("y_position", current_y) if needs_move else current_y
                                         new_width = rule.get("width", current_width) if needs_resize else current_width
@@ -842,6 +876,8 @@ class WindowManagerGUI(ctk.CTk):
                                         flags = 0x0004 | 0x0010 
                                         if not needs_move: flags |= 0x0002
                                         if not needs_resize: flags |= 0x0001
+                                        if needs_style: flags |= 0x0020
+                                        
                                         win32gui.SetWindowPos(hwnd, 0, final_x, final_y, final_width, final_height, flags)
                                 except Exception:
                                     log_exception("enforcer")
