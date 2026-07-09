@@ -79,7 +79,7 @@ class WindowManagerGUI(ctk.CTk):
         self.autosets = []
         self.is_resizing = False
         self.resize_timer = None
-        self.width, self.height, self.always_on_top_val, self.countdown_val, self.col1_width, self.col2_width, self.col3_width = self.load_config()
+        self.width, self.height, self.always_on_top_val, self.countdown_val, self.column1_width, self.column2_width, self.column3_width = self.load_config()
         
         self.pending_resize = False
         self.status_timer = None
@@ -143,9 +143,9 @@ class WindowManagerGUI(ctk.CTk):
             height = int(config.get("Settings", "Height", fallback=1080))
             always_on_top = config.getboolean("Settings", "AlwaysOnTop", fallback=False)
             countdown = int(config.get("Settings", "Countdown", fallback=3))
-            c1 = int(config.get("Settings", "Col1Width", fallback=280))
-            c2 = int(config.get("Settings", "Col2Width", fallback=280))
-            c3 = int(config.get("Settings", "Col3Width", fallback=418))
+            column1_val = int(config.get("Settings", "Column1Width", fallback=280))
+            column2_val = int(config.get("Settings", "Column2Width", fallback=280))
+            column3_val = int(config.get("Settings", "Column3Width", fallback=418))
             
             autosets_string = config.get("Settings", "AutoSets", fallback="[]")
             try:
@@ -167,7 +167,7 @@ class WindowManagerGUI(ctk.CTk):
                 
             if config.has_section("Presets"):
                 self.presets = dict(config.items("Presets"))
-            return width, height, always_on_top, countdown, c1, c2, c3
+            return width, height, always_on_top, countdown, column1_val, column2_val, column3_val
         except:
             return 1920, 1080, False, 3, 280, 280, 418
 
@@ -179,9 +179,9 @@ class WindowManagerGUI(ctk.CTk):
             "Height": str(self.height),
             "AlwaysOnTop": str(self.always_on_top_val),
             "Countdown": str(self.countdown_val),
-            "Col1Width": str(self.col1_width),
-            "Col2Width": str(self.col2_width),
-            "Col3Width": str(self.col3_width),
+            "Column1Width": str(self.column1_width),
+            "Column2Width": str(self.column2_width),
+            "Column3Width": str(self.column3_width),
             "AutoSets": json.dumps(self.autosets)
         }
         config["Presets"] = self.presets
@@ -372,73 +372,73 @@ class WindowManagerGUI(ctk.CTk):
         self.paned_window.bind("<ButtonPress-1>", self.start_paned_resize)
         self.paned_window.bind("<ButtonRelease-1>", self.stop_paned_resize)
         
-        self.col1 = ctk.CTkFrame(self.paned_window, width=self.col1_width)
-        self.col2 = ctk.CTkFrame(self.paned_window, width=self.col2_width)
-        self.col3 = ctk.CTkFrame(self.paned_window, width=self.col3_width)
+        self.column1 = ctk.CTkFrame(self.paned_window, width=self.column1_width)
+        self.column2 = ctk.CTkFrame(self.paned_window, width=self.column2_width)
+        self.column3 = ctk.CTkFrame(self.paned_window, width=self.column3_width)
         
-        self.paned_window.add(self.col1, minsize=280)
-        self.paned_window.paneconfig(self.col1, width=self.col1_width)
+        self.paned_window.add(self.column1, minsize=280)
+        self.paned_window.paneconfig(self.column1, width=self.column1_width)
         
-        self.paned_window.add(self.col2, minsize=280)
-        self.paned_window.paneconfig(self.col2, width=self.col2_width)
+        self.paned_window.add(self.column2, minsize=280)
+        self.paned_window.paneconfig(self.column2, width=self.column2_width)
         
-        self.paned_window.add(self.col3, minsize=380)
-        self.paned_window.paneconfig(self.col3, width=self.col3_width)
+        self.paned_window.add(self.column3, minsize=380)
+        self.paned_window.paneconfig(self.column3, width=self.column3_width)
         
-        self.col1.bind("<Configure>", lambda e: self.update_pane_labels())
-        self.col2.bind("<Configure>", lambda e: self.update_pane_labels())
-        self.col3.bind("<Configure>", lambda e: self.update_pane_labels())
+        self.column1.bind("<Configure>", lambda e: self.update_pane_labels())
+        self.column2.bind("<Configure>", lambda e: self.update_pane_labels())
+        self.column3.bind("<Configure>", lambda e: self.update_pane_labels())
         
-        self.setup_col1()
-        self.setup_col2()
-        self.setup_col3()
+        self.setup_column1()
+        self.setup_column2()
+        self.setup_column3()
 
     def update_pane_labels(self):
-        if not hasattr(self, 'col1_width_lbl'): return
+        if not hasattr(self, 'column1_width_label'): return
         
-        c1 = self.col1.winfo_width()
-        c2 = self.col2.winfo_width()
-        c3 = self.col3.winfo_width()
+        column1_val = self.column1.winfo_width()
+        column2_val = self.column2.winfo_width()
+        column3_val = self.column3.winfo_width()
         
         active_widget = self.focus_get()
         
-        if c1 > 50 and c1 != self.col1_width:
-            self.col1_width = c1
-            if active_widget != self.col1_width_lbl:
-                self.col1_width_lbl.delete(0, "end")
-                self.col1_width_lbl.insert(0, f"{c1}px")
+        if column1_val > 50 and column1_val != self.column1_width:
+            self.column1_width = column1_val
+            if active_widget != self.column1_width_label:
+                self.column1_width_label.delete(0, "end")
+                self.column1_width_label.insert(0, f"{column1_val}px")
                 
-        if c2 > 50 and c2 != self.col2_width:
-            self.col2_width = c2
-            if active_widget != self.col2_width_lbl:
-                self.col2_width_lbl.delete(0, "end")
-                self.col2_width_lbl.insert(0, f"{c2}px")
+        if column2_val > 50 and column2_val != self.column2_width:
+            self.column2_width = column2_val
+            if active_widget != self.column2_width_label:
+                self.column2_width_label.delete(0, "end")
+                self.column2_width_label.insert(0, f"{column2_val}px")
                 
-        if c3 > 50 and c3 != self.col3_width:
-            self.col3_width = c3
-            if active_widget != self.col3_width_lbl:
-                self.col3_width_lbl.delete(0, "end")
-                self.col3_width_lbl.insert(0, f"{c3}px")
+        if column3_val > 50 and column3_val != self.column3_width:
+            self.column3_width = column3_val
+            if active_widget != self.column3_width_label:
+                self.column3_width_label.delete(0, "end")
+                self.column3_width_label.insert(0, f"{column3_val}px")
 
-    def apply_manual_pane_size(self, col_num):
+    def apply_manual_pane_size(self, column_num):
         try:
-            if col_num == 1:
-                val_str = self.col1_width_lbl.get().lower().replace("px", "").strip()
+            if column_num == 1:
+                val_str = self.column1_width_label.get().lower().replace("px", "").strip()
                 val = int(val_str)
-                self.paned_window.paneconfig(self.col1, width=val)
-                self.col1_width = val
+                self.paned_window.paneconfig(self.column1, width=val)
+                self.column1_width = val
                 self.focus_set()
-            elif col_num == 2:
-                val_str = self.col2_width_lbl.get().lower().replace("px", "").strip()
+            elif column_num == 2:
+                val_str = self.column2_width_label.get().lower().replace("px", "").strip()
                 val = int(val_str)
-                self.paned_window.paneconfig(self.col2, width=val)
-                self.col2_width = val
+                self.paned_window.paneconfig(self.column2, width=val)
+                self.column2_width = val
                 self.focus_set()
-            elif col_num == 3:
-                val_str = self.col3_width_lbl.get().lower().replace("px", "").strip()
+            elif column_num == 3:
+                val_str = self.column3_width_label.get().lower().replace("px", "").strip()
                 val = int(val_str)
-                self.paned_window.paneconfig(self.col3, width=val)
-                self.col3_width = val
+                self.paned_window.paneconfig(self.column3, width=val)
+                self.column3_width = val
                 self.focus_set()
             
             self.save_config()
@@ -446,22 +446,22 @@ class WindowManagerGUI(ctk.CTk):
         except ValueError:
             self.update_pane_labels()
 
-    def reset_pane_size(self, col_num):
-        if col_num == 1:
-            self.paned_window.paneconfig(self.col1, width=280)
-        elif col_num == 2:
-            self.paned_window.paneconfig(self.col2, width=280)
-        elif col_num == 3:
-            self.paned_window.paneconfig(self.col3, width=418)
+    def reset_pane_size(self, column_num):
+        if column_num == 1:
+            self.paned_window.paneconfig(self.column1, width=280)
+        elif column_num == 2:
+            self.paned_window.paneconfig(self.column2, width=280)
+        elif column_num == 3:
+            self.paned_window.paneconfig(self.column3, width=418)
         self.update_pane_labels()
         self.save_config()
 
-    def setup_col1(self):
+    def setup_column1(self):
         monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
         work_area = monitor_info['Work']
         monitor_width, monitor_height = work_area[2] - work_area[0], work_area[3] - work_area[1]
         
-        header_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        header_frame = ctk.CTkFrame(self.column1, fg_color="transparent")
         header_frame.pack(fill="x", padx=5, pady=5)
         
         left_header = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -478,7 +478,7 @@ class WindowManagerGUI(ctk.CTk):
         self.config_label.pack(side="right")
         self.update_config_label()
         
-        card_resolution = ctk.CTkFrame(self.col1, corner_radius=8)
+        card_resolution = ctk.CTkFrame(self.column1, corner_radius=8)
         card_resolution.pack(fill="x", padx=5, pady=5)
         resolution_inner = ctk.CTkFrame(card_resolution, fg_color="transparent")
         resolution_inner.pack(padx=5, pady=5, fill="x")
@@ -492,7 +492,7 @@ class WindowManagerGUI(ctk.CTk):
         self.ratio_combobox = ctk.CTkComboBox(resolution_inner, values=["Free", "16:9", "4:3", "21:9"], height=28, command=lambda value: self.update_resolution_from_ui(None, "ratio"))
         self.ratio_combobox.grid(row=0, column=2, padx=(5, 0), sticky="we"); self.ratio_combobox.set("Free")
 
-        control_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        control_frame = ctk.CTkFrame(self.column1, fg_color="transparent")
         control_frame.pack(fill="x", padx=5, pady=5)
         self.topmost_checkbox = ctk.CTkCheckBox(control_frame, text="Always On Top", font=ctk.CTkFont(size=13), command=self.toggle_always_on_top)
         self.topmost_checkbox.pack(side="left", padx=5)
@@ -501,7 +501,7 @@ class WindowManagerGUI(ctk.CTk):
         self.countdown_entry = ctk.CTkEntry(control_frame, width=45, height=26); self.countdown_entry.insert(0, str(self.countdown_val))
         self.countdown_entry.pack(side="left"); self.countdown_entry.bind("<KeyRelease>", self.update_countdown_from_entry)
 
-        action_frame = ctk.CTkFrame(self.col1, fg_color="transparent")
+        action_frame = ctk.CTkFrame(self.column1, fg_color="transparent")
         action_frame.pack(fill="x", padx=5, pady=5)
         action_frame.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkButton(action_frame, text="Capture Active", height=32, font=ctk.CTkFont(size=13, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.check_save)).grid(row=0, column=0, padx=2, pady=2, sticky="we")
@@ -509,10 +509,10 @@ class WindowManagerGUI(ctk.CTk):
         ctk.CTkButton(action_frame, text="Reload Config", height=28, command=self.reload_ui_config).grid(row=1, column=0, padx=2, pady=2, sticky="we")
         ctk.CTkButton(action_frame, text="Open Folder", height=28, command=self.open_folder).grid(row=1, column=1, padx=2, pady=2, sticky="we")
 
-        self.focus_box = ctk.CTkTextbox(self.col1, height=32, corner_radius=6, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=12, weight="bold"))
+        self.focus_box = ctk.CTkTextbox(self.column1, height=32, corner_radius=6, fg_color="#2B2B2B", text_color="#2ECC71", font=ctk.CTkFont(size=12, weight="bold"))
         self.focus_box.pack(fill="x", padx=5, pady=5); self.focus_box.configure(state="disabled")
 
-        position_frame = ctk.CTkFrame(self.col1, corner_radius=8, fg_color="#2B2B2B")
+        position_frame = ctk.CTkFrame(self.column1, corner_radius=8, fg_color="#2B2B2B")
         position_frame.pack(pady=5) 
         symbols = [("↖", "1"), ("↑", "2"), ("↗", "3"), ("←", "4"), ("•", "5"), ("→", "6"), ("↙", "7"), ("↓", "8"), ("↘", "9")]
         for i, (symbol, command) in enumerate(symbols):
@@ -522,29 +522,29 @@ class WindowManagerGUI(ctk.CTk):
                           command=lambda m=command: self.delayed_action(lambda: self.move_window(m))
                          ).grid(row=row, column=col, padx=4, pady=4)
                          
-        footer1 = ctk.CTkFrame(self.col1, fg_color="transparent", height=20)
+        footer1 = ctk.CTkFrame(self.column1, fg_color="transparent", height=20)
         footer1.pack(side="bottom", fill="x", padx=5, pady=2)
         self.status_label = ctk.CTkLabel(footer1, text="Ready", font=ctk.CTkFont(size=13, weight="bold"), text_color="gray")
         self.status_label.pack(side="left")
         
-        self.col1_width_lbl = ctk.CTkEntry(footer1, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
-        self.col1_width_lbl.pack(side="right")
-        self.col1_width_lbl.insert(0, f"{self.col1_width}px")
-        self.col1_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(1))
+        self.column1_width_label = ctk.CTkEntry(footer1, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.column1_width_label.pack(side="right")
+        self.column1_width_label.insert(0, f"{self.column1_width}px")
+        self.column1_width_label.bind("<Return>", lambda e: self.apply_manual_pane_size(1))
 
-    def setup_col2(self):
-        header2 = ctk.CTkFrame(self.col2, fg_color="transparent")
+    def setup_column2(self):
+        header2 = ctk.CTkFrame(self.column2, fg_color="transparent")
         header2.pack(fill="x", padx=5, pady=(5, 2))
         ctk.CTkLabel(header2, text="Presets", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
         ctk.CTkButton(header2, text="↺", width=28, height=28, fg_color="#34495E", hover_color="#2C3E50", command=lambda: self.reset_pane_size(2)).pack(side="right")
         
-        search_frame = ctk.CTkFrame(self.col2, fg_color="transparent")
+        search_frame = ctk.CTkFrame(self.column2, fg_color="transparent")
         search_frame.pack(fill="x", padx=5, pady=2)
         self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search Presets...", height=28)
         self.search_entry.pack(fill="x", expand=True)
         self.search_entry.bind("<KeyRelease>", lambda event: self.update_preset_list(self.search_entry.get()))
         
-        preset_top = ctk.CTkFrame(self.col2, fg_color="transparent")
+        preset_top = ctk.CTkFrame(self.column2, fg_color="transparent")
         preset_top.pack(fill="x", padx=5, pady=2)
         self.preset_name_entry = ctk.CTkEntry(preset_top, placeholder_text="New Preset...", height=28)
         self.preset_name_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
@@ -554,37 +554,37 @@ class WindowManagerGUI(ctk.CTk):
         self.preset_name_entry.bind("<Return>", self._save_preset_event)
         ctk.CTkButton(preset_top, text="Save", width=60, height=28, font=ctk.CTkFont(weight="bold"), command=self.save_preset).pack(side="right")
         
-        self.presets_frame = ctk.CTkScrollableFrame(self.col2, fg_color="transparent")
+        self.presets_frame = ctk.CTkScrollableFrame(self.column2, fg_color="transparent")
         self.presets_frame.pack(fill="both", expand=True, padx=5, pady=(2, 5))
         self.update_preset_list()
 
-        footer2 = ctk.CTkFrame(self.col2, fg_color="transparent", height=20)
+        footer2 = ctk.CTkFrame(self.column2, fg_color="transparent", height=20)
         footer2.pack(side="bottom", fill="x", padx=5, pady=2)
         
-        self.col2_width_lbl = ctk.CTkEntry(footer2, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
-        self.col2_width_lbl.pack(side="right")
-        self.col2_width_lbl.insert(0, f"{self.col2_width}px")
-        self.col2_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(2))
+        self.column2_width_label = ctk.CTkEntry(footer2, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.column2_width_label.pack(side="right")
+        self.column2_width_label.insert(0, f"{self.column2_width}px")
+        self.column2_width_label.bind("<Return>", lambda e: self.apply_manual_pane_size(2))
 
-    def setup_col3(self):
-        header3 = ctk.CTkFrame(self.col3, fg_color="transparent")
+    def setup_column3(self):
+        header3 = ctk.CTkFrame(self.column3, fg_color="transparent")
         header3.pack(fill="x", padx=5, pady=(5, 2))
         ctk.CTkLabel(header3, text="Automatic Profiles", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
         ctk.CTkButton(header3, text="↺", width=28, height=28, fg_color="#34495E", hover_color="#2C3E50", command=lambda: self.reset_pane_size(3)).pack(side="right", padx=(5,0))
         ctk.CTkButton(header3, text="Add Rule", width=80, height=28, command=self.add_empty_autoset).pack(side="right", padx=(5,0))
         ctk.CTkButton(header3, text="Add Target", width=100, height=28, fg_color="#27AE60", hover_color="#2ECC71", command=lambda: self.delayed_action(self.add_current_autoset)).pack(side="right")
 
-        self.autosets_frame = ctk.CTkScrollableFrame(self.col3, fg_color="transparent")
+        self.autosets_frame = ctk.CTkScrollableFrame(self.column3, fg_color="transparent")
         self.autosets_frame.pack(fill="both", expand=True, padx=2, pady=2)
         self.render_autosets()
         
-        footer3 = ctk.CTkFrame(self.col3, fg_color="transparent", height=20)
+        footer3 = ctk.CTkFrame(self.column3, fg_color="transparent", height=20)
         footer3.pack(side="bottom", fill="x", padx=5, pady=2)
         
-        self.col3_width_lbl = ctk.CTkEntry(footer3, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
-        self.col3_width_lbl.pack(side="right")
-        self.col3_width_lbl.insert(0, f"{self.col3_width}px")
-        self.col3_width_lbl.bind("<Return>", lambda e: self.apply_manual_pane_size(3))
+        self.column3_width_label = ctk.CTkEntry(footer3, width=65, height=22, font=ctk.CTkFont(size=11), text_color="gray", fg_color="transparent", border_width=1)
+        self.column3_width_label.pack(side="right")
+        self.column3_width_label.insert(0, f"{self.column3_width}px")
+        self.column3_width_label.bind("<Return>", lambda e: self.apply_manual_pane_size(3))
 
     def add_empty_autoset(self):
         new_set = {"executable": "", "width": self.width, "height": self.height, "x_position": 0, "y_position": 0, "automatic_position": False, "automatic_size": False, "trigger": "On Focus"}
@@ -704,7 +704,7 @@ class WindowManagerGUI(ctk.CTk):
                 if cached_time == create_time:
                     return cached_name
             
-            name = process.name().lower()
+            name = process.name()
             self.pid_cache[process_id] = (name, create_time)
             return name
         except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -793,8 +793,8 @@ class WindowManagerGUI(ctk.CTk):
                         was_focused = (hwnd == last_focus)
 
                         for rule in self.autosets:
-                            rule_executable = rule.get("executable", "").strip().lower()
-                            if not rule_executable or executable_name != rule_executable:
+                            rule_executable = rule.get("executable", "").strip()
+                            if not rule_executable or executable_name.lower() != rule_executable.lower():
                                 continue
                                 
                             trigger_mode = rule.get("trigger", "On Focus")
@@ -883,7 +883,7 @@ class WindowManagerGUI(ctk.CTk):
             self.set_status("Resized active window", "#2ECC71")
 
     def reload_ui_config(self):
-        self.width, self.height, self.always_on_top_val, self.countdown_val, self.col1_width, self.col2_width, self.col3_width = self.load_config()
+        self.width, self.height, self.always_on_top_val, self.countdown_val, self.column1_width, self.column2_width, self.column3_width = self.load_config()
         self.width_entry.delete(0, "end")
         self.width_entry.insert(0, str(self.width))
         self.height_entry.delete(0, "end")
@@ -891,9 +891,9 @@ class WindowManagerGUI(ctk.CTk):
         self.countdown_entry.delete(0, "end")
         self.countdown_entry.insert(0, str(self.countdown_val))
         
-        self.paned_window.paneconfig(self.col1, width=self.col1_width)
-        self.paned_window.paneconfig(self.col2, width=self.col2_width)
-        self.paned_window.paneconfig(self.col3, width=self.col3_width)
+        self.paned_window.paneconfig(self.column1, width=self.column1_width)
+        self.paned_window.paneconfig(self.column2, width=self.column2_width)
+        self.paned_window.paneconfig(self.column3, width=self.column3_width)
         self.update_pane_labels()
         
         if self.always_on_top_val:
