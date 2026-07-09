@@ -37,13 +37,33 @@ if console_window:
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+def get_active_monitor_index():
+    try:
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetForegroundWindow()
+        active_hmon = user32.MonitorFromWindow(hwnd, 2)
+        monitors = []
+        MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+        
+        def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
+            monitors.append(hMonitor)
+            return 1
+            
+        user32.EnumDisplayMonitors(None, None, MonitorEnumProc(callback), 0)
+        
+        if active_hmon in monitors:
+            return monitors.index(active_hmon)
+        return 0
+    except Exception:
+        return 0
+
 class CaptureApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Screen Capturer")
         self.resizable(False, False)
         app_width = 400
-        app_height = 620
+        app_height = 710
         self.update_idletasks()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -70,6 +90,8 @@ class CaptureApp(ctk.CTk):
         self.min_time_val = self.config.get("Settings", "min_time", fallback="0")
         self.max_time_val = self.config.get("Settings", "max_time", fallback="5")
         self.format_val = self.config.get("Settings", "format", fallback="png")
+        self.crf_val = self.config.get("Settings", "crf", fallback="23")
+        self.preset_val = self.config.get("Settings", "preset", fallback="fast")
         self.export_val = self.config.getboolean("Settings", "export_video", fallback=True)
         self.topmost_val = self.config.getboolean("Settings", "always_on_top", fallback=False)
         self.hide_val = self.config.getboolean("Settings", "hide_capture", fallback=True)
@@ -83,6 +105,8 @@ class CaptureApp(ctk.CTk):
         self.config["Settings"]["min_time"] = self.min_time_entry.get()
         self.config["Settings"]["max_time"] = self.max_time_entry.get()
         self.config["Settings"]["format"] = self.format_combobox.get()
+        self.config["Settings"]["crf"] = self.crf_entry.get()
+        self.config["Settings"]["preset"] = self.preset_combobox.get()
         self.config["Settings"]["export_video"] = str(self.export_checkbox.get())
         self.config["Settings"]["always_on_top"] = str(self.always_on_top_checkbox.get())
         self.config["Settings"]["hide_capture"] = str(self.hide_capture_checkbox.get())
@@ -142,6 +166,19 @@ class CaptureApp(ctk.CTk):
         self.format_combobox = ctk.CTkComboBox(row4, values=["png", "jpg", "bmp"], width=80, height=28, command=self.save_config)
         self.format_combobox.set(self.format_val)
         self.format_combobox.pack(side="right")
+        row5 = ctk.CTkFrame(settings_frame, fg_color="transparent")
+        row5.pack(fill="x", padx=10, pady=8)
+        ctk.CTkLabel(row5, text="Video Quality (CRF)", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.crf_entry = ctk.CTkEntry(row5, width=80, height=28)
+        self.crf_entry.insert(0, self.crf_val)
+        self.crf_entry.pack(side="right")
+        self.crf_entry.bind("<KeyRelease>", self.save_config)
+        row6 = ctk.CTkFrame(settings_frame, fg_color="transparent")
+        row6.pack(fill="x", padx=10, pady=8)
+        ctk.CTkLabel(row6, text="FFmpeg Preset", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.preset_combobox = ctk.CTkComboBox(row6, values=["ultrafast", "superfast", "veryfast", "fast", "medium", "slow", "veryslow"], width=100, height=28, command=self.save_config)
+        self.preset_combobox.set(self.preset_val)
+        self.preset_combobox.pack(side="right")
         path_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
         path_frame.pack(fill="x", padx=10, pady=8)
         ctk.CTkLabel(path_frame, text="Output Path", font=ctk.CTkFont(size=13)).pack(side="left")
@@ -310,7 +347,7 @@ class CaptureApp(ctk.CTk):
         else:
             flags = []
 
-        frame_q = queue.Queue()
+        frame_q = queue.Queue(maxsize=1000)
 
         def writer():
             while True:
@@ -325,7 +362,8 @@ class CaptureApp(ctk.CTk):
         writer_thread = threading.Thread(target=writer)
         writer_thread.start()
 
-        capture = WindowsCapture(cursor_capture=False)
+        active_mon_idx = get_active_monitor_index()
+        capture = WindowsCapture(cursor_capture=False, monitor_index=active_mon_idx)
         state = {"start": None, "count": 0}
 
         @capture.event
@@ -340,7 +378,10 @@ class CaptureApp(ctk.CTk):
                 capture_control.stop()
             else:
                 state["count"] += 1
-                frame_q.put((state["count"], frame.frame_buffer.copy()))
+                try:
+                    frame_q.put((state["count"], frame.frame_buffer.copy()), block=False)
+                except queue.Full:
+                    pass
 
         @capture.event
         def on_closed():
@@ -368,23 +409,32 @@ class CaptureApp(ctk.CTk):
         self.update_status("Encoding Video", "#3498DB")
         video_out = os.path.join(session_dir, "output.mp4")
         pattern = os.path.join(session_dir, f"image_%03d.{img_format}")
+        
         try:
             target_fps = str(int(self.fps_entry.get()))
         except ValueError:
             target_fps = "60"
-        
+            
+        try:
+            crf_value = str(int(self.crf_entry.get()))
+        except ValueError:
+            crf_value = "23"
+            
+        preset_value = self.preset_combobox.get()
         ffmpeg_exe = self.ffmpeg_entry.get()
+        
         cmd = [
             ffmpeg_exe, "-y",
             "-framerate", str(input_fps),
             "-i", pattern,
             "-c:v", "libx264",
-            "-preset", "ultrafast",
+            "-preset", preset_value,
             "-r", target_fps,
-            "-crf", "18",
+            "-crf", crf_value,
             "-pix_fmt", "yuv420p",
             video_out
         ]
+        
         try:
             proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
             proc.wait()
