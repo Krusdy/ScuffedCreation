@@ -8,9 +8,10 @@ import cv2
 import threading
 import configparser
 import queue
+import numpy as np
+import mss
 from tkinter import filedialog
 from pynput import keyboard
-from windows_capture import WindowsCapture, Frame, InternalCaptureControl
 
 try:
     ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_int(-4))
@@ -37,25 +38,30 @@ if console_window:
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-def get_active_monitor_index():
+def get_mss_monitor_index():
     try:
+        with mss.mss() as sct:
+            mss_monitors_count = len(sct.monitors) - 1
+            
         user32 = ctypes.windll.user32
         hwnd = user32.GetForegroundWindow()
         active_hmon = user32.MonitorFromWindow(hwnd, 2)
-        monitors = []
-        MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
         
+        monitors = []
         def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
             monitors.append(hMonitor)
             return 1
             
+        MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
         user32.EnumDisplayMonitors(None, None, MonitorEnumProc(callback), 0)
         
         if active_hmon in monitors:
-            return monitors.index(active_hmon)
-        return 0
+            idx = monitors.index(active_hmon) + 1
+            if idx <= mss_monitors_count:
+                return idx
+        return 1
     except Exception:
-        return 0
+        return 1
 
 class CaptureApp(ctk.CTk):
     def __init__(self):
@@ -70,11 +76,14 @@ class CaptureApp(ctk.CTk):
         x_position = int((screen_width / 2) - (app_width / 2))
         y_position = int((screen_height / 2) - (app_height / 2))
         self.geometry(f"{app_width}x{app_height}+{x_position}+{y_position}")
+        
         self.is_capturing = False
         self.engine_running = False
+        self.wait_for_release = False
         self.stop_capture_flag = threading.Event()
         self.pressed_keys = set()
         self.main_listener = None
+        
         self.config = configparser.ConfigParser()
         self.config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
         self.load_config()
@@ -86,6 +95,7 @@ class CaptureApp(ctk.CTk):
             self.config.read(self.config_path)
         if not self.config.has_section("Settings"):
             self.config.add_section("Settings")
+            
         self.fps_val = self.config.get("Settings", "fps", fallback="60")
         self.min_time_val = self.config.get("Settings", "min_time", fallback="0")
         self.max_time_val = self.config.get("Settings", "max_time", fallback="5")
@@ -295,6 +305,7 @@ class CaptureApp(ctk.CTk):
             combo_str = self.get_hotkey_string(self.current_hotkey)
             self.update_status(f"Engine Active - Hold {combo_str} to Capture", "#2ECC71")
             self.pressed_keys.clear()
+            self.wait_for_release = False
             self.main_listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
             self.main_listener.start()
         else:
@@ -306,16 +317,22 @@ class CaptureApp(ctk.CTk):
 
     def on_key_press(self, key):
         self.pressed_keys.add(key)
+        if self.wait_for_release:
+            return
         if self.current_hotkey.issubset(self.pressed_keys) and not self.is_capturing:
             self.is_capturing = True
             self.stop_capture_flag.clear()
             threading.Thread(target=self.run_capture_session, daemon=True).start()
 
     def on_key_release(self, key):
-        if self.is_capturing and key in self.current_hotkey:
-            self.stop_capture_flag.set()
         if key in self.pressed_keys:
             self.pressed_keys.remove(key)
+            
+        if self.is_capturing and not self.current_hotkey.issubset(self.pressed_keys):
+            self.stop_capture_flag.set()
+            
+        if not self.current_hotkey.issubset(self.pressed_keys):
+            self.wait_for_release = False
 
     def get_next_session_folder(self):
         out_dir = self.output_entry.get()
@@ -328,15 +345,25 @@ class CaptureApp(ctk.CTk):
 
     def run_capture_session(self):
         session_dir = self.get_next_session_folder()
+        
+        try:
+            target_fps = int(self.fps_entry.get())
+        except ValueError:
+            target_fps = 60
+            
         try:
             min_time = float(self.min_time_entry.get())
         except ValueError:
             min_time = 0.0
+            
         try:
             max_time = float(self.max_time_entry.get())
         except ValueError:
             max_time = 5.0
-        max_time = max(max_time, min_time)
+            
+        if max_time > 0:
+            max_time = max(max_time, min_time)
+            
         self.update_status("Capturing", "#F39C12")
         
         img_format = self.format_combobox.get()
@@ -347,7 +374,7 @@ class CaptureApp(ctk.CTk):
         else:
             flags = []
 
-        frame_q = queue.Queue(maxsize=1000)
+        frame_q = queue.Queue(maxsize=0)
 
         def writer():
             while True:
@@ -362,38 +389,38 @@ class CaptureApp(ctk.CTk):
         writer_thread = threading.Thread(target=writer)
         writer_thread.start()
 
-        active_mon_idx = get_active_monitor_index()
-        capture = WindowsCapture(cursor_capture=False, monitor_index=active_mon_idx)
-        state = {"start": None, "count": 0}
+        state = {"start": time.perf_counter(), "count": 1}
+        frame_duration = 1.0 / target_fps
+        next_frame_time = state["start"]
 
-        @capture.event
-        def on_frame_arrived(frame: Frame, capture_control: InternalCaptureControl):
-            current = time.perf_counter()
-            if state["start"] is None:
-                state["start"] = current
-            elapsed = current - state["start"]
-            if elapsed >= max_time:
-                capture_control.stop()
-            elif self.stop_capture_flag.is_set() and elapsed >= min_time:
-                capture_control.stop()
-            else:
-                state["count"] += 1
-                try:
-                    frame_q.put((state["count"], frame.frame_buffer.copy()), block=False)
-                except queue.Full:
-                    pass
-
-        @capture.event
-        def on_closed():
-            pass
-
-        capture.start()
+        with mss.mss() as sct:
+            active_mon_idx = get_mss_monitor_index()
+            monitor = sct.monitors[active_mon_idx]
+            
+            while not self.stop_capture_flag.is_set():
+                current_time = time.perf_counter()
+                elapsed = current_time - state["start"]
+                
+                if max_time > 0 and elapsed >= max_time:
+                    break
+                    
+                if current_time >= next_frame_time:
+                    img = sct.grab(monitor)
+                    frame = np.array(img)[:, :, :3]
+                    
+                    frame_q.put((state["count"], frame))
+                    state["count"] += 1
+                    next_frame_time += frame_duration
+                else:
+                    sleep_time = next_frame_time - current_time
+                    if sleep_time > 0.002:
+                        time.sleep(sleep_time - 0.002)
 
         self.update_status("Saving remaining frames...", "#3498DB")
         frame_q.put(None)
         writer_thread.join()
 
-        total = state["count"]
+        total = state["count"] - 1
         if total > 0:
             if self.export_checkbox.get():
                 duration = time.perf_counter() - state["start"]
@@ -403,7 +430,10 @@ class CaptureApp(ctk.CTk):
                 self.update_status("Capture Complete", "#2ECC71")
         else:
             self.update_status("Error: No Frames Captured", "#E74C3C")
+            
         self.is_capturing = False
+        if self.current_hotkey.issubset(self.pressed_keys):
+            self.wait_for_release = True
 
     def compile_video(self, session_dir, input_fps, img_format):
         self.update_status("Encoding Video", "#3498DB")
