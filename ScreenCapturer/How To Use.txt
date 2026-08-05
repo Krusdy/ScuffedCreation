@@ -1,0 +1,7 @@
+How to Use:
+1. Launching: Run the script or executable file. Administrator access is requested automatically for hotkeys and display detection.
+2. Adjusting Settings: Set your Target FPS, Minimum Duration, Maximum Duration, Image Format, Video Quality (CRF), and FFmpeg/Output folder paths.
+3. Preferences: Toggle Compile Video Output, Always On Top, or Hide From Capture as needed.
+4. Binding Hotkeys: Click the Hotkey button, press your key combination, and the app saves it automatically.
+5. Recording: Click Start Engine, hold your hotkey to record, and release to finish.
+6. Accessing Files: Click Open Output Folder to view saved frames and compiled MP4 videos.
