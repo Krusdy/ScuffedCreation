@@ -1,5 +1,6 @@
 Time Zone: UTC+7
-05/08/2026
+Time Format: MM/DD/YYYY
+08/05/2026
 + One-Key Capture Engine: Hold a customizable hotkey to record and release to stop.
 + Active Monitor Detection: Automatically identifies and captures the screen you are currently working on.
 + Flexible Duration Controls: Set minimum capture times or maximum duration limits.
