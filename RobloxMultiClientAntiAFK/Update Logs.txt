@@ -1,4 +1,5 @@
-Time Zone: UTC+7 
+Time Zone: UTC+7
+Time Format: MM/DD/YYYY
 
 04/25/2026
 + Window border now only appears when hovering over a PID
