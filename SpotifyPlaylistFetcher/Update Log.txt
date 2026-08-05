@@ -1,5 +1,14 @@
 Time Zone: UTC+7
-05/08/2026
+Time Format: MM/DD/YYYY
+08/06/2026
++ Cover Art & Image Extraction: Introduced a dedicated high-resolution cover image downloader button that converts fetched Spotify artwork to lossless PNG format using FFmpeg[cite: 2].
++ API Rate-Limit Protection: Improved reliability during large data requests with automatic retries and safety timeouts to prevent application freezing when fetching tracks[cite: 2].
++ Comprehensive Header Toggle: Re-enabled standard export headers with customizable settings to toggle report metadata on or off without stripping output text[cite: 2].
++ Standalone Image Controls: Added dedicated quick-paste functionality for extracting artwork directly from the clipboard independently of text track exports[cite: 2].
++ Advanced Executable Configuration: Added configuration options to specify custom FFmpeg executable paths and target image output filenames[cite: 2].
++ Dynamic Track Fallback Engine: Upgraded internal parsing to seamlessly fall back between Spotify APIs and embed pages to ensure track lists are fully retrieved even when token permissions vary[cite: 2].
+
+08/05/2026
 + Graphical User Interface: Introduced a CustomTkinter-based dark theme desktop application with interactive tabs for Dashboard and Configuration.
 + Web Scraping Authentication: Replaced Spotify Developer OAuth credentials requirement with automated web scraping and guest token retrieval.
 + Single Track Support: Added ability to fetch and export individual Spotify track URLs alongside playlists, users, and artists.
