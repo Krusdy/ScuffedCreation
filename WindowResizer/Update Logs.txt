@@ -1,4 +1,5 @@
 Time Zone: UTC+7
+Time Format: MM/DD/YYYY
 07/10/2026
 + Added Toggle Titlebar in Current Display category
 + Added Hide Titlebar in Automatic Profiles
