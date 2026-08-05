@@ -1,1 +1,10 @@
-test
+Time Zone: UTC+7
+05/08/2026
++ Graphical User Interface: Introduced a CustomTkinter-based dark theme desktop application with interactive tabs for Dashboard and Configuration.
++ Web Scraping Authentication: Replaced Spotify Developer OAuth credentials requirement with automated web scraping and guest token retrieval.
++ Single Track Support: Added ability to fetch and export individual Spotify track URLs alongside playlists, users, and artists.
++ Automated Clipboard Integration: Added quick-paste and auto-fetch from system clipboard using dedicated UI controls or Ctrl+V keybindings.
++ Results Management System: Included built-in file list view with one-click buttons to directly open or copy generated content.
++ Configuration Options: Added dynamic setting controls to customize output export directory, auto-clear previous results, and strip report headers during copy operations.
++ Administrative & Console Handling: Implemented auto-elevation for administrator rights on Windows and background execution without visible console windows.
++ Exception Recovery: Integrated a global exception handler to gracefully capture errors and keep execution open for review
