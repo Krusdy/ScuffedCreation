@@ -1,6 +1,6 @@
 How to Use:
-1. Run the script (install CustomTkinter if prompted).
-2. Paste a Spotify link (Track, Playlist, Album, User, Artist) or click the clipboard button to fetch data automatically.
-3. Use the list buttons to copy file contents or open specific output files.
-4. Use the bottom buttons to open the results or code folder.
-5. Adjust export folder and delete settings in the Configuration tab.
+1. Run the script (install required libraries if prompted).
+2. Paste single or multiple Spotify links into the text area, or use the quick action buttons to paste, clear, or load data.
+3. Adjust export preferences in the Configuration tab (choose export modes, combine results, include playlist info, and set custom paths).
+4. Process links and monitor progress via the color-coded activity logs.
+5. Use the built-in list buttons to copy file contents, open specific output files, or access the results folder.
