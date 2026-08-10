@@ -1,28 +1,33 @@
 Time Zone: UTC+7
 Time Format: MM/DD/YYYY
+08/10/2026
+- Added Filter Mode (Match/Include) in Automatic Profiles.
+- Added Whitelist and Blacklist advanced textboxes for precise window matching.
+- Removed Toggle Titlebar in Current Display category and Hide Titlebar in Automatic Profiles.
+
 07/10/2026
-+ Added Toggle Titlebar in Current Display category
-+ Added Hide Titlebar in Automatic Profiles
+- Added Toggle Titlebar in Current Display category.
+- Added Hide Titlebar in Automatic Profiles.
 
 07/09/2026
-+ Auto-Set Feature: Added target/rule management, Auto Size/Position toggles, Always/On-Focus modes, and manual coordinate input.
-+ Interface Layout: Split into three categories with bottom-right width editing and top-right reset buttons.
-+ Preset Management: Added a search bar and separated Name/Size fields.
+- Auto-Set Feature: Added target/rule management, Auto Size/Position toggles, Always/On-Focus modes, and manual coordinate input.
+- Interface Layout: Split into three categories with bottom-right width editing and top-right reset buttons.
+- Preset Management: Added a search bar and separated Name/Size fields.
 
 06/20/2026
-+ Added presets (Right-click to rename or delete).
-+ Remake UI bigger.
+- Added presets (Right-click to rename or delete).
+- Remake UI bigger.
 
 06/06/2026
-+ GUI Resolution: Added resolution options to the GUI.
-+ Ratio Change: Added ability to change window aspect ratio.
+- GUI Resolution: Added resolution options to the GUI.
+- Ratio Change: Added ability to change window aspect ratio.
 
 05/18/2026
-+ Fixed position not perfect.
+- Fixed position not perfect.
 
 05/05/2026
-+ Smart Move: Moving a window now keeps its current size instead of forcing a resize.
-+ Auto-Resize Link: Moving will only change window size if you pressed Capture Layout first.
-+ 9-Point Grid: Added more movement options to cover all corners and sides of the screen.
-+ Live Delay Setting: Added a box to change the delay time instantly on the main screen.
-+ Better Persistence: Window pin and delay settings now save and load correctly.
+- Smart Move: Moving a window now keeps its current size instead of forcing a resize.
+- Auto-Resize Link: Moving will only change window size if you pressed Capture Layout first.
+- 9-Point Grid: Added more movement options to cover all corners and sides of the screen.
+- Live Delay Setting: Added a box to change the delay time instantly on the main screen.
+- Better Persistence: Window pin and delay settings now save and load correctly.
