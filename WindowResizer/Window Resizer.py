@@ -1,6 +1,7 @@
 import sys
 import os
 import ctypes
+import importlib.util
 
 def is_administrator():
     try:
@@ -18,11 +19,43 @@ import traceback
 
 try:
     def ensure_dependencies():
-        try:
-            required_packages = ["customtkinter", "pygetwindow", "psutil", "pywin32", "pyperclip"]
-            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade"] + required_packages, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
+        core_packages = ["pip", "setuptools", "wheel"]
+        required_packages = ["customtkinter", "pygetwindow", "psutil", "pywin32", "pyperclip", "packaging", "darkdetect", "pystray", "Pillow"]
+        all_packages = core_packages + required_packages
+        import_mapping = {
+            "pip": "pip",
+            "setuptools": "setuptools",
+            "wheel": "wheel",
+            "customtkinter": "customtkinter",
+            "pygetwindow": "pygetwindow",
+            "psutil": "psutil",
+            "pywin32": "win32gui",
+            "pyperclip": "pyperclip",
+            "packaging": "packaging",
+            "darkdetect": "darkdetect",
+            "pystray": "pystray",
+            "Pillow": "PIL"
+        }
+        missing = []
+        for package in all_packages:
+            import_name = import_mapping.get(package, package)
+            if importlib.util.find_spec(import_name) is None:
+                missing.append(package)
+        
+        if missing:
+            install_command = f"{sys.executable} -m pip install --upgrade " + " ".join(missing)
+            print("Missing core or required libraries detected:")
+            for package in missing:
+                print(f"- {package}")
+            print("\nRun the following command to install all missing libraries at once:")
+            print(install_command)
+            print("\nAttempting automatic installation and upgrade...")
+            try:
+                subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade"] + missing, check=True)
+            except Exception as error_detail:
+                print(f"Automatic installation failed: {error_detail}")
+                input("Press Enter to exit...")
+                sys.exit(1)
 
     ensure_dependencies()
 
@@ -42,6 +75,8 @@ try:
     import json
     import logging
     import pyperclip
+    import pystray
+    from PIL import Image, ImageDraw, ImageTk
 
     LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "error.log")
 
@@ -97,17 +132,36 @@ try:
             self.editing_inline = None
             
             self.process_identifier_cache = {} 
+            self.tray_icon = None
             
+            self.setup_application_icon()
+
             if self.always_on_top_value:
                 self.attributes("-topmost", True)
                 
             self.bind_class("Entry", "<Control-BackSpace>", self._control_backspace)
             self.bind("<Control-s>", self._save_preset_event)
             self.bind("<Configure>", self._on_window_configure)
+            self.protocol("WM_DELETE_WINDOW", self.exit_from_tray)
             
             self.setup_user_interface()
             self.start_focus_tracker()
             self.start_automatic_enforcer()
+
+        def create_app_icon(self):
+            image = Image.new("RGB", (64, 64), color=(33, 150, 243))
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((16, 16, 48, 48), fill=(255, 255, 255))
+            draw.rectangle((24, 24, 40, 40), fill=(33, 150, 243))
+            return image
+
+        def setup_application_icon(self):
+            try:
+                icon_image = self.create_app_icon()
+                self.app_icon_photo = ImageTk.PhotoImage(icon_image)
+                self.iconphoto(True, self.app_icon_photo)
+            except Exception:
+                pass
 
         def _on_window_configure(self, event):
             if event.widget == self:
@@ -120,8 +174,12 @@ try:
             self.is_resizing = False
 
         def start_paned_resize(self, event):
-            if self.paned_window.identify(event.x, event.y):
-                self.is_resizing = True
+            try:
+                if self.paned_window.sash_coord(0):
+                    pass
+            except Exception:
+                pass
+            self.is_resizing = True
 
         def stop_paned_resize(self, event):
             self.is_resizing = False
@@ -401,7 +459,7 @@ try:
             main_container = customtkinter.CTkFrame(self, fg_color="transparent")
             main_container.pack(fill="both", expand=True, padx=5, pady=5)
             
-            self.paned_window = tkinter.PanedWindow(main_container, orient="horizontal", bd=0, sashwidth=6, bg="#242424", sashcursor="sb_h_double_arrow", opaqueresize=True)
+            self.paned_window = tkinter.PanedWindow(main_container, orient="horizontal", bd=0, sashwidth=6, bg="#242424", opaqueresize=True)
             self.paned_window.pack(fill="both", expand=True)
             
             self.paned_window.bind("<ButtonPress-1>", self.start_paned_resize)
@@ -550,6 +608,10 @@ try:
             customtkinter.CTkButton(action_frame, text="Apply Active", height=32, font=customtkinter.CTkFont(size=13, weight="bold"), fg_color="#1F6AA5", command=lambda: self.delayed_action(self.resize_only)).grid(row=0, column=1, padx=2, pady=2, sticky="we")
             customtkinter.CTkButton(action_frame, text="Reload Config", height=28, command=self.reload_user_interface_config).grid(row=1, column=0, padx=2, pady=2, sticky="we")
             customtkinter.CTkButton(action_frame, text="Open Folder", height=28, command=self.open_folder).grid(row=1, column=1, padx=2, pady=2, sticky="we")
+
+            tray_action_frame = customtkinter.CTkFrame(self.column1, fg_color="transparent")
+            tray_action_frame.pack(fill="x", padx=5, pady=2)
+            customtkinter.CTkButton(tray_action_frame, text="Minimize to Tray", height=28, fg_color="#2C3E50", hover_color="#34495E", command=self.hide_to_tray).pack(fill="x", expand=True)
 
             self.focus_box = customtkinter.CTkTextbox(self.column1, height=32, corner_radius=6, fg_color="#2B2B2B", text_color="#2ECC71", font=customtkinter.CTkFont(size=12, weight="bold"))
             self.focus_box.pack(fill="x", padx=5, pady=5)
@@ -882,7 +944,7 @@ try:
                 
                 left_offset = dwm_rectangle.left - window_rectangle.left
                 top_offset = dwm_rectangle.top - window_rectangle.top
-                right_offset = window_rectangle.right - dwm_rectangle.right
+                right_offset = window_rectangle.right - window_rectangle.right
                 bottom_offset = window_rectangle.bottom - window_rectangle.bottom
                 
                 return left_offset, top_offset, right_offset, bottom_offset
@@ -1117,6 +1179,46 @@ try:
             
             win32gui.SetWindowPos(window_handle, 0, final_horizontal, final_vertical, final_width, final_height, 0x0004 | 0x0010)
             self.set_status(f"Moved Window to position {position}", "#2ECC71")
+
+        def setup_tray_icon(self):
+            if self.tray_icon:
+                try:
+                    self.tray_icon.stop()
+                except Exception:
+                    pass
+                self.tray_icon = None
+
+            image = self.create_app_icon()
+            menu = pystray.Menu(
+                pystray.MenuItem("Show Window", self.show_from_tray, default=True),
+                pystray.MenuItem("Exit", self.exit_from_tray)
+            )
+            self.tray_icon = pystray.Icon("Window Workspace", image, "Window Workspace", menu)
+            threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+        def hide_to_tray(self):
+            self.withdraw()
+            self.setup_tray_icon()
+
+        def show_from_tray(self, icon=None, item=None):
+            if self.tray_icon:
+                try:
+                    self.tray_icon.stop()
+                except Exception:
+                    pass
+                self.tray_icon = None
+            self.after(0, self.deiconify)
+            self.after(100, self.lift)
+
+        def exit_from_tray(self, icon=None, item=None):
+            if self.tray_icon:
+                try:
+                    self.tray_icon.stop()
+                except Exception:
+                    pass
+                self.tray_icon = None
+            self.after(0, self.destroy)
+            sys.exit(0)
 
     if __name__ == "__main__":
         console_window = win32console.GetConsoleWindow()
