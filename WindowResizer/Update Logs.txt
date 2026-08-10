@@ -4,6 +4,7 @@ Time Format: MM/DD/YYYY
 - Added Filter Mode (Match/Include) in Automatic Profiles.
 - Added Whitelist and Blacklist advanced textboxes for precise window matching.
 - Removed Toggle Titlebar in Current Display category and Hide Titlebar in Automatic Profiles.
+- Added minimize to tray button
 
 07/10/2026
 - Added Toggle Titlebar in Current Display category.
