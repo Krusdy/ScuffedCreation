@@ -1,5 +1,0 @@
-Time Zone: UTC+7 
-Time Format: MM/DD/YYYY
-
-08/10/2026
-+ Created
