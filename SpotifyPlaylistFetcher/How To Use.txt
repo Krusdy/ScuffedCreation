@@ -1,6 +1,0 @@
-How to Use:
-1. Run the script (install required libraries if prompted).
-2. Paste single or multiple Spotify links into the text area, or use the quick action buttons to paste, clear, or load data.
-3. Adjust export preferences in the Configuration tab (choose export modes, combine results, include playlist info, and set custom paths).
-4. Process links and monitor progress via the color-coded activity logs.
-5. Use the built-in list buttons to copy file contents, open specific output files, or access the results folder.
