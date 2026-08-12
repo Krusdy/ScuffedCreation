@@ -21,23 +21,27 @@
 
 ## 🧰 Available Tools
 
-| Tool | Category | Key Capabilities | Release |
-| :--- | :---: | :--- | :---: |
-| **[Window Resizer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Window-Resizer)** | `System` | Custom window dimensions, 9-point grid alignment, process focus rules, title filters. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Window-Resizer) |
-| **[Screen Gamma Changer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Gamma-Changer)** | `Display` | Compact control panel, precise sliders, custom presets, system tray support. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Gamma-Changer) |
-| **[Screen Capturer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Capturer)** | `Media` | Hotkey recording, screenshot snapshots, custom framerates, FFmpeg video encoding. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Capturer) |
-| **[Roblox Multi-Client Anti-AFK](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK)** | `Gaming` | Multi-account cycling, simulated inputs, automated AFK disconnection prevention. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK) |
-| **[Progress Freezer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer)** | `Automation` | Pause background apps/games on window switch, instant auto-resume on return. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer) |
-| **[Priority Manager](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager)** | `Performance` | Auto-set process priorities based on window focus states using custom profiles. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager) |
-| **[Single Tools](https://github.com/Krusdy/ScuffedCreation/releases/tag/Single-Tools)** | `Utilities` | Curated set of micro-utilities for specific everyday system operations. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Single-Tools) |
+<div align="right">
+  <input type="text" id="toolSearchInput" placeholder="🔍 Search tools or capabilities..." style="padding: 6px 12px; border-radius: 6px; border: 1px solid #3b82f6; background-color: #16161b; color: #ffffff;" />
+</div>
+
+<br />
+
+| <a href="#available-tools">Tool ↕️</a> | <a href="#available-tools">Key Capabilities ↕️</a> | Release |
+| :--- | :--- | :---: |
+| **[Window Resizer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Window-Resizer)** | Effortlessly adjust active windows to custom dimensions, save presets, align with a 9-point grid, and configure automated rules based on process focus and title filters. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Window-Resizer) |
+| **[Priority Manager](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager)** | Automatically set process priorities for programs based on window focus states using custom profiles. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager) |
+| **[Progress Freezer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer)** | Automatically pause background applications or games when switching away from them and instantly resume them upon return. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer) |
+| **[Screen Capturer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Capturer)** | Record screen activity or capture snapshots using hotkeys, custom framerates, multiple output formats, and FFmpeg video encoding options. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Capturer) |
+| **[Screen Gamma Changer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Gamma-Changer)** | Fine-tune screen gamma levels via a compact control panel featuring precise sliders, custom presets, and system tray minimization. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Gamma-Changer) |
+| **[Roblox Multi-Client Anti-AFK](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK)** | Automatically cycle through multiple Roblox game accounts and simulate inputs to prevent AFK disconnections. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK) |
+| **[Single Tools](https://github.com/Krusdy/ScuffedCreation/releases/tag/Single-Tools)** | Access a curated collection of lightweight, standalone utilities designed for various system micro-tasks. | [Download](https://github.com/Krusdy/ScuffedCreation/releases/tag/Single-Tools) |
 
 ---
 
 ## 🚀 Quick Start
 
-1. Go to the **[Releases](../../releases)** page or click any **Download** link in the table above.
-2. Download the desired executable or release archive.
-3. Launch the application (*Run as Administrator* if required for system-level process interactions).
+Access all software packages and latest releases directly on the **[Releases Downloads Page](https://github.com/Krusdy/ScuffedCreation/releases)**.
 
 ---
 
