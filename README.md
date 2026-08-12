@@ -1,32 +1,22 @@
-# Scuffed Creation
+# ScuffedCreation
 
-A collection of AI-generated utilities and automation tools designed to optimize productivity and gaming experiences.
+A centralized collection of AI-generated utilities and automation tools designed to optimize system performance and enhance daily workflows.
 
 ## Features
 
-Below is the list of tools included in this repository. Each tool is designed to solve specific problems efficiently.
+Below are the tools included in this repository. Each tool is built to address specific needs efficiently:
 
-*   **Window Resizer**: Quickly resize your active windows to specific dimensions or presets. Ideal for managing multi-window workflows.
-*   **Single Tools**: A collection of standalone utilities for various system tasks and micro-automation needs.
-*   **Screen Gamma Changer**: Adjust your screen brightness and gamma levels instantly for a better visual experience in games or applications.
-*   **Screen Capturer**: A lightweight tool for taking screenshots or capturing screen areas with minimal system overhead.
-*   **Roblox Multi-Client Anti-AFK**: Designed for Roblox players, this tool prevents your account from being kicked for inactivity and manages multi-client instances effectively.
-*   **Progress Freezer**: A utility to monitor and manage process states, allowing you to pause or manage resource allocation for specific applications.
-*   **Priority Manager**: Control and adjust the CPU priority of running processes to ensure your most important applications receive the resources they need.
-
-## Usage
-
-1.  Navigate to the [Releases](https://github.com/Krusdy/ScuffedCreation/releases) page.
-2.  Download the latest release for the tool you wish to use.
-3.  Run the executable file (ensure you have the necessary system permissions).
-
-## Contributing
-
-This project is built primarily using AI-assisted development. Feel free to fork the repository and submit pull requests if you have improvements or new tools to add.
+* [Window Resizer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Window-Resizer): Effortlessly adjust active windows to custom dimensions or specific screen presets.
+* [Single Tools](https://github.com/Krusdy/ScuffedCreation/releases/tag/Single-Tools): A curated collection of lightweight, standalone utilities for various system micro-tasks.
+* [Screen Gamma Changer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Gamma-Changer): Instant control over screen gamma and brightness levels for optimal visual clarity.
+* [Screen Capturer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Capturer): A streamlined tool for high-speed screen captures with minimal system resource usage.
+* [Roblox Multi-Client Anti-AFK](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK): Manage multiple game client instances and prevent automatic idle timeouts.
+* [Progress Freezer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer): A utility to monitor and manage process states, allowing you to pause or resume execution as needed.
+* [Priority Manager](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager): Take control of your system by dynamically adjusting CPU priority for running applications.
 
 ## Disclaimer
 
-These tools are provided "as is" for educational and personal use. Use them responsibly. I am not responsible for any actions taken by third-party services (such as Roblox) regarding the use of these tools.
+These tools are provided "as is" for educational and personal use. Use them responsibly. I am not responsible for any issues arising from the use of these tools or actions taken by third-party platforms.
 
 ---
-*Created by [Krusdy](https://github.com/Krusdy)*
+*Maintained by [Krusdy](https://github.com/Krusdy)*
