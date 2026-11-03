@@ -1,20 +1,115 @@
- <div align="center">
+<div align="center">
 
 # ScuffedCreation
 
-*A collection of lightweight Windows tools.*
+*Heh...*
 
 </div>
 
-| Tool | Description | Preview | Download |
-|:---|:---|:---:|:---:|
-| ⚡ **Auto Click Set** | Automate mouse clicks with customizable positions and timing. | <img src="Previews/Auto%20Click%20Set.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Auto-Click-Set) |
-| 🎮 **Discord Quest Dummy** | Automate Discord Quest progress. | <img src="Previews/Discord%20Quest.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Discord-Quest) |
-| 🎬 **Media Processor** | Convert and process video, audio, and image files. | <img src="Previews/Media%20Processor.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Processor) |
-| 🖱️ **Mouse Motion Blur** | Customizable mouse cursor motion blur and visual effects. | <img src="Previews/Mouse%20Movement%20Motion%20Blur.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Mouse-Movement-Motion-Blur) |
-| 🚀 **Priority Manager** | Manage process priorities for better system control. | <img src="Previews/Priority%20Manager.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager) |
-| ⏸️ **Progress Freezer** | Freeze or pause application progress. | <img src="Previews/Progress%20Freezer.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer) |
-| 🧰 **Powerful Toys** | A collection of useful system utilities and tools. | <img src="Previews/Powerful%20Toys.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Powerful-Toys) |
-| 🎮 **Roblox Multi-Client Anti-AFK** | Prevent Roblox clients from going AFK. | <img src="Previews/Roblox%20Multi%20Client%20Anti-AFK.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK) |
-| 🖥️ **Screen Tuner** | Customize and manage screen settings. | <img src="Previews/Screen%20Tuner.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Tuner) |
-| 🎵 **Spotify Playlist Fetcher** | Fetch and retrieve Spotify playlist information. | <img src="Previews/Spotify%20Playlist%20Fetcher.png" width="180"> | [**↗ Get**](https://github.com/Krusdy/ScuffedCreation/releases/tag/Spotify-Playlist-Fetcher) |
+<table>
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Auto-Click-Set">
+<h2>⚡ Auto Click Set ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Auto-Click-Set">
+<img src="Previews/Auto%20Click%20Set.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Multi-Chat">
+<h2>🤖 Claude Multi Chat ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Multi-Chat">
+<img src="Previews/Claude%20Multi%20Chat.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Discord-Quest">
+<h2>🎮 Discord Quest Dummy ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Discord-Quest">
+<img src="Previews/Discord%20Quest.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Processor">
+<h2>🎬 Media Processor ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Processor">
+<img src="Previews/Media%20Processor.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Mouse-Movement-Motion-Blur">
+<h2>🖱️ Mouse Motion Blur ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Mouse-Movement-Motion-Blur">
+<img src="Previews/Mouse%20Movement%20Motion%20Blur.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager">
+<h2>🚀 Priority Manager ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Priority-Manager">
+<img src="Previews/Priority%20Manager.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer">
+<h2>⏸️ Progress Freezer ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Progress-Freezer">
+<img src="Previews/Progress%20Freezer.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Powerful-Toys">
+<h2>🧰 Powerful Toys ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Powerful-Toys">
+<img src="Previews/Powerful%20Toys.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK">
+<h2>🎮 Roblox Multi-Client Anti-AFK ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Roblox-Multi-Client-Anti-AFK">
+<img src="Previews/Roblox%20Multi%20Client%20Anti-AFK.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Tuner">
+<h2>🖥️ Screen Tuner ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Screen-Tuner">
+<img src="Previews/Screen%20Tuner.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Spotify-Playlist-Fetcher">
+<h2>🎵 Spotify Playlist Fetcher ↗</h2>
+</a>
+<a href="https://github.com/Krusdy/ScuffedCreation/releases/tag/Spotify-Playlist-Fetcher">
+<img src="Previews/Spotify%20Playlist%20Fetcher.png" width="100%" height="280" style="object-fit:contain; aspect-ratio:16/9;">
+</a>
+</td>
+</tr>
+</table>
