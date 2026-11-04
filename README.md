@@ -15,9 +15,9 @@
 </td>
 <td width="50%" align="center">
 
-### 🤖 [Claude Multi Chat](https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Multi-Chat)
+### 🤖 [Claude Nexus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Nexus)
 
-[![Claude Multi Chat](Previews/Claude%20Multi%20Chat.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Multi-Chat)
+[![Claude Nexus](Previews/Claude%20Nexus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Claude-Nexus)
 
 </td>
 </tr>
