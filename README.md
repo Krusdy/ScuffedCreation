@@ -17,7 +17,7 @@
 
 ### 🔮 [Prism-Nexsus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
-[![Prism-Nexus](Previews/Prism-Nexsus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
+[![Prism-Nexus](Previews/Prism-Nexus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
 </td>
 </tr>
