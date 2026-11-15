@@ -15,9 +15,9 @@
 </td>
 <td width="50%" align="center">
 
-### 🔮 [Prism-Nexsus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexsus)
+### 🔮 [Prism-Nexsus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
-[![Prism-Nexsus](Previews/Prism-Nexsus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexsus)
+[![Prism-Nexus](Previews/Prism-Nexsus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
 </td>
 </tr>
