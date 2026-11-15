@@ -26,7 +26,7 @@
 
 ### 🎬 [Media-Viewer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
 
-[![Media-Viewer](Previews/Media%20Viewerr.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
+[![Media-Viewer](Previews/Media%20Viewer.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
 
 </td>
 <td width="50%" align="center">
