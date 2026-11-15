@@ -15,9 +15,9 @@
 </td>
 <td width="50%" align="center">
 
-### 🔮 [Prism-Nexsus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
+### 🔮 [Prism-Nexus](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
-[![Prism-Nexus](Previews/Prism-Nexus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
+[![Prism-Nexus](Previews/Prism%20Nexus.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Prism-Nexus)
 
 </td>
 </tr>
@@ -26,7 +26,7 @@
 
 ### 🎬 [Media-Viewer](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
 
-[![Media-Viewer](Previews/Media-Viewer.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
+[![Media-Viewer](Previews/Media%20Viewer.png)](https://github.com/Krusdy/ScuffedCreation/releases/tag/Media-Viewer)
 
 </td>
 <td width="50%" align="center">
